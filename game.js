@@ -50,7 +50,7 @@ function create () {
 			bugGenLoop.destroy();
 			this.physics.pause();
 
-			this.add.text(280, 150, 'Game Over \n Click to Restart', { fontSize: '15px', fill: '#000' })
+			this.add.text(280, 150, 'Game Over \n Klikke for å restarte', { fontSize: '15px', fill: '#000' })
 			gameState.score = 0
 
 			this.input.on('pointerdown', () => {
