@@ -19,6 +19,15 @@ body {
   box-shadow: 0 0 5px 1px;
   padding: 20px;
 }
+.footer {
+  width: 750px;
+  max-width: 75%;
+  text-align: center;
+  background-color: #7e0a0a;
+  border-radius: 5px;
+  box-shadow: 0 0 5px 1px;
+  padding: 20px;
+}
 
 .button {
   background-color: #4400ff;
