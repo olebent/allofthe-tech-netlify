@@ -23,6 +23,8 @@ function preload() {
   const gameState = {
     enemyVelocity: 1
   };
+
+  //const differentPlatform = './platform.png';
   
   function bugRandom() {
     var x = Math.floor((Math.random() * 3) + 1);
