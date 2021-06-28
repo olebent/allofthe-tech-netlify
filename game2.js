@@ -21,7 +21,7 @@ function preload() {
   }
   
   const gameState = {
-    enemyVelocity: 1
+    enemyVelocity: 5
   };
 
   //const differentPlatform = './platform.png';
@@ -83,8 +83,12 @@ function preload() {
                   loop: true,
                   }
         )
-        this.physics.add.collider(pellets,platforms,(pellet)=> {pellet.destroy()
-        });
+        //this.physics.add.collider(pellets,bugRepellent,()=> {bugPellet.destroy()
+        //});
+        //this.physics.add.collider(bugPellet,platforms,()=> {bugPellet.destroy()
+        //});
+        
+        
         this.physics.add.collider(pellets,gameState.player,()=> {
           gameState.active=false;
           gameState.pelletsLoop.destroy();
@@ -135,7 +139,7 @@ function preload() {
           // Add logic for winning condition and enemy movements below:
        if     (numOfTotalEnemies() === 15){
           this.add.text(150, 5, 'Siste 15! Nå går det fortere', { fontSize: '15px', fill: '#000' });
-      gameState.enemyVelocity =3;
+      gameState.enemyVelocity =8;
       } else if  (numOfTotalEnemies() === 0) {  
            gameState.active=false;
         this.physics.pause();

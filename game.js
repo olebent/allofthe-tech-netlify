@@ -8,7 +8,7 @@ class StartScene extends Phaser.Scene {
 	}
 	
 	create() {
-	this.add.text(95, 250, 'Click to Start!', { fontSize: '30px', fill: '#000000' });
+	this.add.text(95, 250, 'Klikk for å starte! (bruk piltastene)', { fontSize: '30px', fill: '#000000' });
 	
 	this.input.on('pointerup', () => {
 		// Add your code below:
