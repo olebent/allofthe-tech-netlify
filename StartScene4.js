@@ -10,7 +10,7 @@ class StartScene extends Phaser.Scene {
     create() {
       // Creates the text on the start screen:
       this.add.text(10, 50, "  Tall-telling" , { fill: '#4D39E0', fontSize: '45px' });
-      this.add.text(130, 520, 'Klar for å starte?\nKlikk for å begynne!', { fill: '#4D39E0', fontSize: '20px' });
+      this.add.text(130, 520, 'Klar for a starte?\nKlikk for a begynne!', { fill: '#4D39E0', fontSize: '20px' });
   
       // Create the sprite object, animation, and play the animation: 
               gameState.startSprite = this.add.sprite(220, 320, 'searching');
