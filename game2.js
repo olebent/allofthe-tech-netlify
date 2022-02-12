@@ -144,7 +144,7 @@ function preload() {
            gameState.active=false;
         this.physics.pause();
          gameState.enemyVelocity =1;
-        this.add.text(210, 250, 'Du klarte det! win!', { fontSize: '15px', fill: '#000000' });
+        this.add.text(210, 250, 'Du klarte det! Alfred!', { fontSize: '15px', fill: '#000000' });
     }  else{
       gameState.enemies.getChildren().forEach(bug=> {
         bug.x +=gameState.enemyVelocity
