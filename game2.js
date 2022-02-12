@@ -138,13 +138,13 @@ function preload() {
   
           // Add logic for winning condition and enemy movements below:
        if     (numOfTotalEnemies() === 15){
-          this.add.text(150, 5, 'Siste 15! Nå går det fortere', { fontSize: '15px', fill: '#000' });
+          this.add.text(150, 5, 'Nå går det fortere', { fontSize: '15px', fill: '#000' });
       gameState.enemyVelocity =8;
       } else if  (numOfTotalEnemies() === 0) {  
            gameState.active=false;
         this.physics.pause();
          gameState.enemyVelocity =1;
-        this.add.text(210, 250, 'Du klarte det! Alfred!', { fontSize: '15px', fill: '#000000' });
+        this.add.text(210, 250, 'Du klarte det!', { fontSize: '15px', fill: '#000000' });
     }  else{
       gameState.enemies.getChildren().forEach(bug=> {
         bug.x +=gameState.enemyVelocity
