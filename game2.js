@@ -94,7 +94,7 @@ function preload() {
           gameState.pelletsLoop.destroy();
           this.physics.pause();
           gameState.enemyVelocity =1;
-          this.add.text(125, 250, 'Game Over , Nina', { fontSize: '20px', fill: '#000' });
+          this.add.text(125, 250, 'Spillet er slutt', { fontSize: '20px', fill: '#000' });
         });
   
         gameState.bugRepellent = this.physics.add.group();
