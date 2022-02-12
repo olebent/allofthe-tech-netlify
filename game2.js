@@ -108,7 +108,7 @@ function preload() {
           gameState.active=false;
           gameState.enemyVelocity = 1;
           this.physics.pause();
-          this.add.text(10, 250, 'You were eaten! Game Over , Nina', { fontSize: '20px', fill: '#000' });
+          this.add.text(10, 250, 'Du ble spist!', { fontSize: '20px', fill: '#000' });
      });
             //collider mellom enemies og plattform
     this.physics.add.collider(gameState.enemies,platforms,()=> {
