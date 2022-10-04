@@ -1,6 +1,6 @@
 body {
-  padding: 10;
-  margin: 0;
+  padding: 0;
+  margin: 10;
   width: 100vw;
   height: 100vh;
   font-family: "Syne Mono", monospace;
@@ -19,6 +19,7 @@ body {
   border-radius: 5px;
   box-shadow: 0 0 5px 1px;
   padding: 20px;
+  margin: 20px;
 }
 
 .container2 {
@@ -29,6 +30,7 @@ body {
   border-radius: 5px;
   box-shadow: 0 0 5px 1px;
   padding: 20px;
+  margin: 20px
 }
 
 .footer {
