@@ -20,9 +20,6 @@ body {
   box-shadow: 0 0 5px 1px;
   padding: 20px;
   margin: 20px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
 }
 
 .container2 {
@@ -45,9 +42,6 @@ body {
   box-shadow: 0 0 5px 1px;
   padding: 20px;
   margin: 20px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
 }
 
 .button {
