@@ -1,3 +1,7 @@
+body{
+  background-color: #7236ff;
+  font-family: "Syne Mono", monospace;
+}
 .container {
   display: grid;
   max-width: 900px;
@@ -13,7 +17,7 @@ h1, h2, h3 {
 }
 
 header {
-  background-color: dodgerblue;
+  background-color: #ffffff;
   grid-area: 1 / 1 / 3 / 7;
 }
 
@@ -23,7 +27,7 @@ nav {
 }
 
 .left {
-  background-color: dodgerblue;
+  background-color: #ffffff;
   grid-area: 4 / 1 / 9 / 5;
 }
 
@@ -33,13 +37,13 @@ nav {
 }
 
 .overlap {
-  background-color: lightcoral;
+  background-color: #7236ff;
   grid-area: 6 / 4 / 8 / 6;
   z-index: 5;
 }
 
 footer {
-  background-color: dodgerblue;
+  background-color: #ffffff;
   grid-area: 9 / 1 / 13 / 7;
   z-index: 5;
 }
