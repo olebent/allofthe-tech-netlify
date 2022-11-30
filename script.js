@@ -15,3 +15,14 @@ function switchBackground() {
   const backgroundColor = randomColor();
   document.body.style.backgroundColor = backgroundColor;
 }
+
+//samme bare for vulcan wave
+
+const waveButton = document.getElementById('wave-button');
+
+clapButton.addEventListener('click', newTopBorderColor);
+
+function newTopBorderColor() {
+  const borderTopColor = randomColor();
+  document.body.style.borderTopColor = borderTopColor;
+}
