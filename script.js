@@ -20,7 +20,7 @@ function switchBackground() {
 
 const waveButton = document.getElementById('wave-button');
 
-clapButton.addEventListener('click', newTopBorderColor);
+waveButton.addEventListener('click', newTopBorderColor);
 
 function newTopBorderColor() {
   const borderTopColor = randomColor();
