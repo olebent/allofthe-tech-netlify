@@ -23,9 +23,9 @@ const waveButton = document.getElementById('wave-button');
 waveButton.addEventListener('click', newContainerColor);
 
 function newContainerColor() {
+  const boksen = document.getElementById("boksen");
   const containerColor = randomColor();
-  container.style.backgroundColor = containerColor;
+  boksen.style.backgroundColor = containerColor;
 }
 
-//const boksen = document.getElementById("boksen");
-  //      boksen.style.backgroundColor = containerColor;
+
