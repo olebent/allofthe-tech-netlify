@@ -24,5 +24,5 @@ waveButton.addEventListener('click', newContainerColor);
 
 function newContainerColor() {
   const containerColor = randomColor();
-  document.body.container.style.backgroundColor = containerColor;
+  document.container.style.backgroundColor = containerColor;
 }
