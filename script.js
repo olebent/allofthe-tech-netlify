@@ -20,9 +20,9 @@ function switchBackground() {
 
 const waveButton = document.getElementById('wave-button');
 
-waveButton.addEventListener('click', newTopBorderColor);
+waveButton.addEventListener('click', newContainerColor);
 
-function newTopBorderColor() {
-  const borderTopColor = randomColor();
-  document.body.style.borderTopColor = borderTopColor;
+function newContainerColor() {
+  const containerColor = randomColor();
+  document.body.container.style.backgroundColor = containerColor;
 }
