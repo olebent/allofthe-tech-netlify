@@ -24,8 +24,12 @@ waveButton.addEventListener('click', newContainerColor);
 
 function newContainerColor() {
   const boksen = document.getElementById("boksen");
+  const boksto = document.getElementById("boksto");
+  const bokstre = document.getElementById("bokstre");
   const containerColor = randomColor();
   boksen.style.backgroundColor = containerColor;
+  //boksto.style.backgroundColor = containerColor;
+  bokstre.style.backgroundColor = containerColor;
 }
 
 
