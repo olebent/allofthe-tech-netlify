@@ -6,20 +6,6 @@ body {
     font-family: "Syne Mono", monospace;
     background-color: #7236ff;
     display: flex;
-    align-items: center;
-    flex-direction: column;
-    overflow-x:hidden;
-}
-.container {
-    width: 750px;
-    max-width: 75%;
-    text-align: center;
-    background-color: #ffffff;
-    border-radius: 5px;
-    box-shadow: 0 0 5px 1px;
-    padding: 20px;
-    margin: 20px;
-    display: flex;
     flex-direction: column;
 }
 .button-container {
@@ -29,8 +15,20 @@ body {
     flex-wrap: wrap;
     justify-content: center;
 }
-button, span {
+.button-container > a span,
+button {
     display: inline-block;
+    background-color: #4400ff;
+    color: #ffffff;
+    border-radius: 4px;
+    padding: 10px 40px;
+    margin: 15px 0px;
+    font-family: "Syne Mono", monospace;
+    font-size: 1.75rem;
+    border: 5px solid #4400ff;
+    text-align: center;
+    text-decoration: none;
+    line-height: normal; /* Ensures alignment */
 }
 .button-container > a {
     margin: 20px;
@@ -55,29 +53,12 @@ button, span {
     padding: 20px;
     margin: 20px;
 }
-.button-test {
-    background-color: #4400ff;
-    color: #ffffff;
-    border-radius: 4px;
-    padding: 10px 40px;
-    margin: 15px 0px;
-    font-family: "Syne Mono", monospace;
-    font-size: 1.75rem;
-    border: 5px solid #4400ff;
-}
-.button {
-    background-color: #4400ff;
-    color: #ffffff;
-    border-radius: 4px;
-    padding: 10px 40px;
-    margin: 15px 0px;
-    font-size: 1.75rem;
-    border: 5px solid #4400ff;
-}
-.button:hover {
+.button-container > a span:hover,
+button:hover {
     border: 5px solid black;
     cursor: pointer;
 }
-.button:active {
+.button-container > a span:active,
+button:active {
     border: 5px solid #ffd300;
 }
