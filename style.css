@@ -1,64 +1,68 @@
+/* Grunnleggende styling */
 body {
-    padding: 0;
-    margin: 10px;
-    width: 100vw;
-    height: 100vh;
-    font-family: "Syne Mono", monospace;
-    background-color: #7236ff;
-    display: flex;
-    flex-direction: column;
+  margin: 0;
+  padding: 0;
+  font-family: 'Syne Mono', monospace;
+  background-color: #f9f9f9;
+  color: #333;
 }
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+h1 {
+  margin: 0;
+  padding: 10px 0;
+}
+
+/* Stil for knappebeholderen */
 .button-container {
-    margin-left: auto;
-    margin-right: auto;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 20px;
 }
-.button-container > a span,
-button {
-    display: inline-block;
-    background-color: #4400ff;
-    color: #ffffff;
-    border-radius: 4px;
-    padding: 10px 40px;
-    margin: 15px 0px;
-    font-family: "Syne Mono", monospace;
-    font-size: 1.75rem;
-    border: 5px solid #4400ff;
-    text-align: center;
-    text-decoration: none;
-    line-height: normal; /* Ensures alignment */
+
+/* Felles stil for knapper */
+.button, .button-test {
+  display: inline-block;
+  padding: 10px 20px;
+  background-color: #007BFF;
+  color: #fff;
+  text-decoration: none;
+  border-radius: 4px;
+  transition: background-color 0.3s ease;
+  font-size: 1rem;
 }
-.button-container > a {
-    margin: 20px;
+
+.button:hover, .button-test:hover {
+  background-color: #0056b3;
 }
-.container2 {
-    width: 750px;
-    max-width: 75%;
-    text-align: center;
-    background-color: #ffffff;
-    border-radius: 5px;
-    box-shadow: 0 0 5px 1px;
-    padding: 20px;
-    margin: 20px;
-}
+
+/* Footer-styling */
 .footer {
-    width: 750px;
-    max-width: 75%;
+  text-align: center;
+  padding: 20px;
+  background-color: #e9ecef;
+  margin-top: 40px;
+}
+
+/* Responsiv tilpasning for mobil */
+@media (max-width: 600px) {
+  .button-container {
+    flex-direction: column;
+    align-items: center;
+  }
+  .button, .button-test {
+    width: 100%;
+    max-width: 300px;
     text-align: center;
-    background-color: #ffffff;
-    border-radius: 5px;
-    box-shadow: 0 0 5px 1px;
-    padding: 20px;
-    margin: 20px;
-}
-.button-container > a span:hover,
-button:hover {
-    border: 5px solid black;
-    cursor: pointer;
-}
-.button-container > a span:active,
-button:active {
-    border: 5px solid #ffd300;
+    font-size: 1.2rem;
+  }
 }
