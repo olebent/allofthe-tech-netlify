@@ -164,24 +164,16 @@ function preload() {
   
   }
   
-  const config = {
-      type: Phaser.AUTO,
-      width: 450,
-      height: 500,
-      backgroundColor: "b9eaff",
-      physics: {
-          default: 'arcade',
-          arcade: {
-              gravity: { y: 200 },
-              enableBody: true,
-          }
-      },
-      scene: {
-          preload,
-          create,
-          update
-      }
-  };
-  
-  
-  const game = new Phaser.Game(config);
+var config = {
+  type: Phaser.AUTO,
+  width: 800,    // din foretrukne basebredde
+  height: 600,   // din foretrukne basehøyde
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH
+  },
+  scene: [StartScene, GameScene, EndScene] // dine scener
+};
+
+var game = new Phaser.Game(config);
+
