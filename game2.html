@@ -1,22 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8" />
+  <!-- Sørger for at siden skalerer riktig på mobil -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Bug Invaders</title>
-  <style background-color: #bbff00>
+  <style>
+    body {
+      background-color: #7236ff;
+      margin: 0;
+      padding: 10px;
+    }
+    /* Gjør canvas responsiv: fyller bredden, men begrenser maksbredden */
     canvas {
-      width: 45%;
+      width: 100%;
+      max-width: 600px;
+      display: block;
+      margin: 20px auto;
     }
   </style>
 </head>
-
-<body style="background-color:#7236ff;">
-    <a href="./index.html"> -- Tilbake?</a> 
-    <br>
+<body>
+  <a href="./index.html"> -- Tilbake?</a> 
+  <br>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.16.2/dist/phaser.min.js"></script>
-
   <script defer src="game2.js"></script>
 </body>
-
 </html>
