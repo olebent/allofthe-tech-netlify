@@ -1,20 +1,27 @@
 <!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <title>Bug Dodger</title>
-    <style>
-      canvas {
-        width: 450px;
-      }
-    </style>
-    
+  <meta charset="UTF-8" />
+  <!-- Add viewport meta for proper mobile scaling -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bug Dodger</title>
+  <style>
+    /* Make the canvas responsive:
+       - It centers on the page
+       - It fills the width of its container (up to 450px) while keeping its aspect ratio */
+    canvas {
+      display: block;
+      margin: 20px auto;
+      width: 100%;
+      max-width: 450px;
+      height: auto;
+    }
+  </style>
 </head>
 <body>
-    <a href="./index.html"> -- Back?</a> 
-    <br>
+  <a href="./index.html"> -- Back?</a> 
+  <br>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.16.2/dist/phaser.min.js"></script>
-  
   <script src="StartScene.js"></script>
   <script src="GameScene.js"></script>
   <script src="game3.js"></script>
