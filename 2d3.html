@@ -3,22 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>2D Plattformspill – Cartoon Style med Poeng og Fiende-Pushing</title>
+  <title>2D Plattformspill – Feilsøkt versjon</title>
   <style>
     body {
       margin: 0;
       padding: 0;
-      background: #222;
+      background: #000;
       overflow: hidden;
     }
     canvas {
       display: block;
       margin: 0 auto;
+      background: #333;
     }
   </style>
 </head>
 <body>
-
   <canvas id="gameCanvas" width="500" height="844"></canvas>
   <script>
     // Globale variabler og nivådata
@@ -28,13 +28,12 @@
     let enemies = [];
     let toastMessage = "";
     let toastTimer = 0;
-    let levelWidth = 500; // oppdateres når nivået genereres
+    let levelWidth = 500; // Oppdateres når nivået genereres
     let idleTimer = 0;
     let currentPlayerEmoji = "🧍";
     let score = 0;
-    let airKillChain = false; // sporer om man dreper dyr uten å treffe bakken
-    let clouds = []; // for cartoon-bakgrunn
-
+    let airKillChain = false; // Sporer om man dreper dyr uten å treffe bakken
+    
     // Konstanter
     const GRAVITY = 0.8;
     const PLAYER_SPEED = 3;
@@ -42,14 +41,14 @@
     const LAVA_HEIGHT = 50;
     const PLAYER_WIDTH = 30;
     const PLAYER_HEIGHT = 40; // Brukes til å sikre minst 40px gap
-
+    
     // Liste over fiende-emoji
     const enemyEmojis = [
       "🦘", "🦑", "🫎", "🦙", "🐙", "🐖", "🐄", "🐂", "🐨",
       "🦌", "🦬", "🐗", "🦏", "🪿", "🦅", "🐒", "🦍", "🦆",
       "🐀", "🐁"
     ];
-
+    
     // Spilleren
     const player = {
       x: 0,
@@ -60,17 +59,18 @@
       velocityY: 0,
       onGround: false
     };
-
+    
     // Kontrollvariabler
     const keys = {};
     let touchLeft = false, touchRight = false;
-
+    
     // Tastaturkontroller
     document.addEventListener("keydown", (e) => { keys[e.code] = true; });
     document.addEventListener("keyup", (e) => { keys[e.code] = false; });
-
+    
     // Berøringskontroller
     const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
     canvas.addEventListener("pointerdown", (e) => {
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
@@ -101,7 +101,7 @@
         }
       }
     });
-
+    
     // Enkel rektangulær kollisjonsdeteksjon
     function checkCollision(a, b) {
       return a.x < b.x + b.width &&
@@ -109,7 +109,7 @@
              a.y < b.y + b.height &&
              a.y + a.height > b.y;
     }
-
+    
     // Tegn avrundede rektangler (for plattformer)
     function drawRoundedRect(ctx, x, y, width, height, radius) {
       ctx.beginPath();
@@ -125,15 +125,15 @@
       ctx.closePath();
       ctx.fill();
     }
-
-    // Oppdatert nivågenerering: Plattformene plasseres med et vertikalt gap som er enten lik eller minst én spillerhøyde (40px)
+    
+    // Nivågenerering: Plattformene plasseres med et vertikalt gap som er enten lik eller minst én spillerhøyde (40px)
     function generateLevel(level) {
       const numPlatforms = 6 + (level - 1) * 2;
       const plats = [];
       let startX = 50;
       let lastX = startX;
       let lastY = canvas.height - LAVA_HEIGHT - 100; // Startplattformen
-      const platformWidth = 750; // 5 ganger bredere enn tidligere
+      const platformWidth = 750; // Plattformene er 5 ganger bredere enn tidligere
       const platformHeight = 20;
       plats.push({ x: lastX, y: lastY, width: platformWidth, height: platformHeight, type: "normal" });
       
@@ -152,11 +152,7 @@
         newY = Math.max(50, Math.min(newY, canvas.height - LAVA_HEIGHT - 50));
         // Sørg for at vertikal forskjell er minst PLAYER_HEIGHT (40px)
         if (Math.abs(newY - lastY) < PLAYER_HEIGHT) {
-          if (newY < lastY) {
-            newY = lastY - PLAYER_HEIGHT;
-          } else {
-            newY = lastY + PLAYER_HEIGHT;
-          }
+          newY = newY < lastY ? lastY - PLAYER_HEIGHT : lastY + PLAYER_HEIGHT;
           newY = Math.max(50, Math.min(newY, canvas.height - LAVA_HEIGHT - 50));
         }
         let type = "normal";
@@ -171,26 +167,14 @@
       levelWidth = plats[plats.length - 1].x + platformWidth + 50;
       return plats;
     }
-
-    // Generer noen skyer for bakgrunnen
-    function generateClouds() {
-      clouds = [];
-      const numClouds = Math.floor(levelWidth / 200);
-      for (let i = 0; i < numClouds; i++) {
-        let x = Math.random() * levelWidth;
-        let y = 20 + Math.random() * 100;
-        let size = 60 + Math.random() * 40;
-        clouds.push({ x, y, size });
-      }
-    }
-
+    
+    // Initier nivået (fjerner bakgrunnstegning)
     function initLevel(resetToLevel1 = false) {
       if (resetToLevel1) {
         level = 1;
         score = 0;
       }
       platforms = generateLevel(level);
-      generateClouds();
       // Plasser spilleren på startplattformen
       const startPlat = platforms[0];
       player.x = startPlat.x + (startPlat.width - player.width) / 2;
@@ -201,7 +185,7 @@
       idleTimer = 0;
       currentPlayerEmoji = "🧍";
       airKillChain = false;
-
+      
       // Generer fiender (dyr) på noen plattformer (unntatt start og cake)
       enemies = [];
       for (let i = 1; i < platforms.length - 1; i++) {
@@ -225,10 +209,10 @@
         }
       }
     }
-
+    
     initLevel();
-
-    // Neste nivå: Gi 10 poeng for nivåfullføring og bytt til 🤸; ved siste nivå vis 🧑‍🎓.
+    
+    // Neste nivå: Gi 10 poeng for fullført nivå og bytt til 🤸; ved siste nivå vis 🧑‍🎓.
     function nextLevel() {
       score += 10;
       if (level < maxLevel) {
@@ -244,235 +228,4 @@
         toastMessage = "Du klarte det! Nå, gå og spill Portal i stedet";
         currentPlayerEmoji = "🧑‍🎓";
         player.velocityX = 0;
-        player.velocityY = 0;
-      }
-    }
-
-    // Håndter fiende-kollisjon: Hvis spilleren lander på et dyr, vis "💥" i 300ms og gi poeng.
-    function handleEnemyCollision(enemy) {
-      if (player.velocityY > 0 && (player.y + player.height - enemy.y < 20) && !enemy.exploding) {
-        enemy.exploding = true;
-        enemy.emoji = "💥";
-        if (airKillChain) {
-          score += 50;
-        } else {
-          score += 10;
-          airKillChain = true;
-        }
-        player.velocityY = -JUMP_STRENGTH * 0.6;
-        setTimeout(() => {
-          enemies = enemies.filter(e => e !== enemy);
-        }, 300);
-        return true;
-      }
-      return false;
-    }
-
-    function update() {
-      // Spillkontroll: Tastatur eller berøring
-      const movingLeft = keys["ArrowLeft"] || touchLeft;
-      const movingRight = keys["ArrowRight"] || touchRight;
-      if (movingLeft) {
-        player.velocityX = -PLAYER_SPEED;
-      } else if (movingRight) {
-        player.velocityX = PLAYER_SPEED;
-      } else {
-        player.velocityX = 0;
-      }
-      if ((keys["ArrowUp"] || keys["Space"]) && player.onGround) {
-        player.velocityY = -JUMP_STRENGTH;
-        player.onGround = false;
-        idleTimer = 0;
-      }
-      if (!player.onGround) {
-        player.velocityY += GRAVITY;
-      }
-      player.x += player.velocityX;
-      player.y += player.velocityY;
-
-      // Kollisjon med fiender – her legger vi til at dersom spilleren står på en fiende og
-      // ikke beveger seg selv, blir spilleren flyttet med fiendens horisontale hastighet.
-      enemies.slice().forEach(enemy => {
-        if (checkCollision(player, enemy)) {
-          // Hvis vi angriper fra oven (og ikke allerede eksploderer), forsøk å drepe fienden
-          if (player.velocityY > 0 && (player.y + player.height - enemy.y < 20) && !enemy.exploding) {
-            if (handleEnemyCollision(enemy)) return;
-          }
-          // Dersom spilleren står på fienden (nær toppen) og faller, la fienden "bære" spilleren
-          if (player.y + player.height - enemy.y < 10 && player.velocityY >= 0) {
-            // Hvis spilleren ikke selv beveger seg horisontalt, flytt spilleren med fiendens hastighet
-            if (Math.abs(player.velocityX) < 0.1) {
-              player.x += enemy.velocityX;
-            }
-            player.y = enemy.y - player.height;
-            player.onGround = true;
-          } else {
-            // Vanlig kollisjon – stopp bevegelse
-            if (player.velocityX > 0) {
-              player.x = enemy.x - player.width;
-            } else if (player.velocityX < 0) {
-              player.x = enemy.x + enemy.width;
-            }
-            if (player.velocityY > 0) {
-              player.y = enemy.y - player.height;
-              player.onGround = true;
-            } else if (player.velocityY < 0) {
-              player.y = enemy.y + enemy.height;
-            }
-            player.velocityX = 0;
-            player.velocityY = 0;
-          }
-        }
-      });
-
-      // Plattformkollisjon
-      let onAnyPlatform = false;
-      platforms.forEach(plat => {
-        if (player.velocityY >= 0) {
-          const margin = 20;
-          if (
-            player.x + player.width > plat.x &&
-            player.x < plat.x + plat.width &&
-            player.y + player.height >= plat.y &&
-            (player.y + player.height - Math.abs(player.velocityY)) < plat.y + margin
-          ) {
-            player.y = plat.y - player.height;
-            player.velocityY = 0;
-            onAnyPlatform = true;
-            if (plat.type === "cake" && !toastMessage) {
-              nextLevel();
-            }
-          }
-        }
-      });
-      player.onGround = onAnyPlatform;
-      if (player.onGround) {
-        airKillChain = false;
-      }
-
-      // Hvis spilleren faller i lavaen, reset til nivå 1
-      if (player.y > canvas.height - LAVA_HEIGHT) {
-        initLevel(true);
-      }
-
-      // Oppdater fiender
-      enemies.forEach(enemy => {
-        enemy.velocityY += GRAVITY;
-        enemy.x += enemy.velocityX;
-        if (enemy.x < enemy.platform.x) {
-          enemy.x = enemy.platform.x;
-          enemy.velocityX *= -1;
-        }
-        if (enemy.x + enemy.width > enemy.platform.x + enemy.platform.width) {
-          enemy.x = enemy.platform.x + enemy.platform.width - enemy.width;
-          enemy.velocityX *= -1;
-        }
-        if (enemy.y + enemy.height > enemy.platform.y) {
-          enemy.y = enemy.platform.y - enemy.height;
-          enemy.velocityY = 0;
-        }
-        if (!enemy.exploding && enemy.velocityY === 0 && Math.random() < 0.005) {
-          enemy.velocityY = -JUMP_STRENGTH * (0.8 + Math.random() * 0.4);
-        }
-      });
-
-      // Oppdater idle-teller
-      if (Math.abs(player.velocityX) < 0.1 && player.onGround) {
-        idleTimer++;
-      } else {
-        idleTimer = 0;
-      }
-      if (!toastMessage) {
-        if (player.velocityX > 0) {
-          currentPlayerEmoji = "🏃‍➡️"; // løper til høyre
-        } else if (player.velocityX < 0) {
-          currentPlayerEmoji = "🏃";   // løper til venstre
-        } else if (idleTimer >= 60) {
-          currentPlayerEmoji = "🧎‍➡️";
-        } else {
-          currentPlayerEmoji = "🧍";
-        }
-      }
-    }
-
-    // Tegn cartoon-bakgrunn: himmel, skyer og lava
-    function drawCartoonBackground(cameraX) {
-      ctx.fillStyle = "#87CEEB";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = "white";
-      clouds.forEach(cloud => {
-        let cloudX = cloud.x - cameraX;
-        if (cloudX + cloud.size > 0 && cloudX - cloud.size < canvas.width) {
-          ctx.beginPath();
-          ctx.arc(cloudX, cloud.y, cloud.size * 0.6, 0, Math.PI * 2);
-          ctx.arc(cloudX + cloud.size * 0.5, cloud.y - cloud.size * 0.2, cloud.size * 0.5, 0, Math.PI * 2);
-          ctx.arc(cloudX + cloud.size, cloud.y, cloud.size * 0.6, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      });
-      ctx.fillStyle = "#FF4500";
-      ctx.fillRect(cameraX, canvas.height - LAVA_HEIGHT, canvas.width, LAVA_HEIGHT);
-      ctx.fillStyle = "#FFD700";
-      for (let i = 0; i < 10; i++) {
-        let lx = cameraX + Math.random() * canvas.width;
-        let ly = canvas.height - LAVA_HEIGHT + Math.random() * (LAVA_HEIGHT - 10);
-        ctx.beginPath();
-        ctx.arc(lx, ly, 5, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-
-    function draw() {
-      let cameraX = player.x - canvas.width / 2;
-      if (cameraX < 0) cameraX = 0;
-      if (cameraX > levelWidth - canvas.width) cameraX = levelWidth - canvas.width;
-      drawCartoonBackground(cameraX);
-      // Tegn plattformer
-      ctx.fillStyle = "white";
-      platforms.forEach(plat => {
-        let drawX = plat.x - cameraX;
-        drawRoundedRect(ctx, drawX, plat.y, plat.width, plat.height, 10);
-        if (plat.type === "cake") {
-          ctx.font = "20px sans-serif";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillStyle = "black";
-          ctx.fillText("🍰", drawX + plat.width / 2, plat.y + plat.height / 2);
-          ctx.fillStyle = "white";
-        }
-      });
-      // Tegn fiender
-      ctx.font = "30px sans-serif";
-      enemies.forEach(enemy => {
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(enemy.emoji, enemy.x - cameraX + enemy.width/2, enemy.y + enemy.height/2);
-      });
-      // Tegn spilleren
-      ctx.font = "30px sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(currentPlayerEmoji, player.x - cameraX + player.width/2, player.y + player.height/2);
-      // HUD – nivå og score
-      ctx.font = "16px sans-serif";
-      ctx.textAlign = "left";
-      ctx.fillStyle = "#fff";
-      ctx.fillText("Nivå: " + level, cameraX + 10, 20);
-      ctx.fillText("Score: " + score, cameraX + canvas.width - 100, 20);
-      if (toastMessage) {
-        ctx.font = "24px sans-serif";
-        ctx.textAlign = "center";
-        ctx.fillStyle = "yellow";
-        ctx.fillText(toastMessage, cameraX + canvas.width/2, canvas.height/2);
-      }
-    }
-
-    function gameLoop() {
-      update();
-      draw();
-      requestAnimationFrame(gameLoop);
-    }
-    gameLoop();
-  </script>
-</body>
-</html>
+        player.velocityY =
