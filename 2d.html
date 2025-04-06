@@ -19,7 +19,7 @@
   </style>
 </head>
 <body>
-  <!-- Spillområdet: bredde 500px, høyde 844px (passer bra på f.eks. iPhone 14 i portrettmodus) -->
+  <!-- Spillområdet er satt til 500x844 (passer fint på moderne mobiler) -->
   <canvas id="gameCanvas" width="500" height="844"></canvas>
   <script>
     // Hent canvas og kontekst
@@ -30,6 +30,7 @@
     let level = 1;
     const maxLevel = 7;
     let platforms = [];
+    let enemies = [];
     let toastMessage = "";
     let toastTimer = 0;
 
@@ -40,8 +41,14 @@
     const LAVA_HEIGHT = 50; // Lavaen vises nederst
     const PLAYER_WIDTH = 30;
     const PLAYER_HEIGHT = 40;
+    
+    // Liste over fiende-emoji (motstandere)
+    const enemyEmojis = [
+      "🦘", "🦑", "🫎", "🦙", "🐙", "🐖", "🐄", "🐂", "🐨", "🦌",
+      "🦬", "🐗", "🦏", "🪿", "🦅", "🐒", "🦍", "🦆", "🐀", "🐁"
+    ];
 
-    // Spilleren – posisjon, hastighet og tilstand
+    // Spilleren – posisjon, størrelse, bevegelse og status
     const player = {
       x: 0,
       y: 0,
@@ -64,12 +71,12 @@
       keys[e.code] = false;
     });
 
-    // Berøringskontroller (for mobil)
+    // Berøringskontroller (mobil)
     canvas.addEventListener('pointerdown', (e) => {
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
-      // Trykk i øverste tredjedel for å hoppe
+      // Øverste tredjedel: hopp
       if (y < canvas.height / 3) {
         if (player.onGround) {
           player.velocityY = -JUMP_STRENGTH;
@@ -97,13 +104,21 @@
       }
     });
 
-    // Funksjon for å generere nivåets plattformer
-    // Antall plattformer = 2 + (nivå - 1)*2. Første plattform er start, siste har kake-emoji.
+    // Enkle rektangulære kollisjonsdeteksjon
+    function checkCollision(a, b) {
+      return a.x < b.x + b.width &&
+             a.x + a.width > b.x &&
+             a.y < b.y + b.height &&
+             a.y + a.height > b.y;
+    }
+
+    // Generer plattformer for nivået.
+    // Antall plattformer = 2 + (nivå-1)*2.
+    // Første plattform er start, siste plattform har kake (🍰).
     function generateLevel(level) {
       const numPlatforms = 2 + (level - 1) * 2;
       const plats = [];
-      const marginTop = 50; // øvre margin for plattformene
-      // Vertikal spacing mellom plattformene
+      const marginTop = 50; // øvre margin
       const spacing = (canvas.height - LAVA_HEIGHT - marginTop) / (numPlatforms - 1);
       for (let i = 0; i < numPlatforms; i++) {
         const y = canvas.height - LAVA_HEIGHT - i * spacing;
@@ -111,37 +126,241 @@
         const height = 20;
         let x;
         if (i === 0) {
-          // Startplattformen plasseres midt på skjermen
+          // Startplattform plasseres midt på skjermen
           x = (canvas.width - width) / 2;
         } else {
-          // Plasser de andre plattformene med noe variasjon horisontalt
+          // Andre plattformer plasseres med litt horisontal variasjon
           x = Math.random() * (canvas.width - width);
         }
-        // Siste plattform skal ha kake-emoji
         const type = (i === numPlatforms - 1) ? "cake" : "normal";
         plats.push({ x, y, width, height, type });
       }
       return plats;
     }
 
-    // Initialiser nivået: generer plattformer og plasser spilleren på startplattformen
+    // Initialiser nivået: generer plattformer, plasser spilleren og fiendene
     function initLevel() {
       platforms = generateLevel(level);
+      // Plasser spilleren på startplattformen
       const startPlat = platforms[0];
       player.x = startPlat.x + (startPlat.width - player.width) / 2;
       player.y = startPlat.y - player.height;
       player.velocityX = 0;
       player.velocityY = 0;
       player.onGround = true;
+
+      // Generer fiender: For hver plattform (unntatt start og kake-plattform) med en viss sannsynlighet
+      enemies = [];
+      for (let i = 1; i < platforms.length - 1; i++) {
+        if (Math.random() < 0.7) {  // 70% sjanse for å få en fiende på plattformen
+          const plat = platforms[i];
+          const enemyWidth = 30, enemyHeight = 30;
+          // Plasser fienden et sted på plattformen (innenfor plattformens bredde)
+          const ex = plat.x + Math.random() * (plat.width - enemyWidth);
+          const ey = plat.y - enemyHeight;
+          // Sett en liten horisontal hastighet (enten til venstre eller høyre)
+          const velocityX = (Math.random() < 0.5 ? -1 : 1) * (1 + Math.random());
+          enemies.push({
+            x: ex,
+            y: ey,
+            width: enemyWidth,
+            height: enemyHeight,
+            velocityX: velocityX,
+            velocityY: 0,
+            platform: plat,  // knytt fienden til plattformen den står på
+            emoji: enemyEmojis[Math.floor(Math.random() * enemyEmojis.length)]
+          });
+        }
+      }
     }
 
     initLevel();
 
-    // Funksjon for å gå videre til neste nivå
+    // Neste nivå: øk nivået eller vis vinner-melding
     function nextLevel() {
       if (level < maxLevel) {
         level++;
+        toastMessage = "";
         initLevel();
       } else {
         toastMessage = "Du klarte det! Nå, gå og spill Portal i stedet";
-        // Stopper bevegelse –
+        player.velocityX = 0;
+        player.velocityY = 0;
+      }
+    }
+
+    // Spilloppdatering
+    function update() {
+      // --- Spillers kontroll ---
+      // Bestem bevegelsesretning (tastatur eller berøring)
+      const movingLeft = keys['ArrowLeft'] || touchLeft;
+      const movingRight = keys['ArrowRight'] || touchRight;
+      if (movingLeft) {
+        player.velocityX = -PLAYER_SPEED;
+      } else if (movingRight) {
+        player.velocityX = PLAYER_SPEED;
+      } else {
+        player.velocityX = 0;
+      }
+      // Hoppesignal fra tastatur
+      if ((keys['ArrowUp'] || keys['Space']) && player.onGround) {
+        player.velocityY = -JUMP_STRENGTH;
+        player.onGround = false;
+      }
+
+      // Påfør tyngdekraft til spilleren
+      player.velocityY += GRAVITY;
+
+      // --- Spilleren beveger seg – separat akseoppdatering for enklere kollisjon ---
+      // Horisontal bevegelse
+      player.x += player.velocityX;
+      // Sjekk horisontale kollisjoner med fiender
+      enemies.forEach(enemy => {
+        if (checkCollision(player, enemy)) {
+          if (player.velocityX > 0) {
+            player.x = enemy.x - player.width;
+          } else if (player.velocityX < 0) {
+            player.x = enemy.x + enemy.width;
+          }
+          player.velocityX = 0;
+        }
+      });
+
+      // Vertikal bevegelse
+      player.y += player.velocityY;
+      enemies.forEach(enemy => {
+        if (checkCollision(player, enemy)) {
+          if (player.velocityY > 0) { // faller
+            player.y = enemy.y - player.height;
+            player.onGround = true;
+          } else if (player.velocityY < 0) { // hopper oppover
+            player.y = enemy.y + enemy.height;
+          }
+          player.velocityY = 0;
+        }
+      });
+
+      // --- Plattformkollisjon ---
+      player.onGround = false;
+      platforms.forEach(plat => {
+        // Bare sjekk om spilleren faller nedover
+        if (player.velocityY >= 0) {
+          if (
+            player.x + player.width > plat.x &&
+            player.x < plat.x + plat.width &&
+            player.y + player.height >= plat.y &&
+            player.y + player.height - player.velocityY < plat.y
+          ) {
+            player.y = plat.y - player.height;
+            player.velocityY = 0;
+            player.onGround = true;
+            // Hvis plattformen har kake, trigges neste nivå
+            if (plat.type === "cake" && !toastMessage) {
+              toastMessage = "du fant kaken - neste nivå!";
+              toastTimer = 120; // vises ca. 2 sekunder (ved 60 fps)
+              setTimeout(nextLevel, 2000);
+            }
+          }
+        }
+      });
+
+      // Dersom spilleren faller ned i lavaen, restart nivået
+      if (player.y > canvas.height - LAVA_HEIGHT) {
+        initLevel();
+      }
+
+      // --- Oppdater fiender ---
+      enemies.forEach(enemy => {
+        // Påfør tyngdekraft for fienden
+        enemy.velocityY += GRAVITY;
+        // Oppdater fiendens posisjon separat for horisontal og vertikal bevegelse
+
+        // Horisontal bevegelse
+        enemy.x += enemy.velocityX;
+        // Sørg for at fienden ikke forlater plattformens horisontale område
+        if (enemy.x < enemy.platform.x) {
+          enemy.x = enemy.platform.x;
+          enemy.velocityX *= -1;
+        }
+        if (enemy.x + enemy.width > enemy.platform.x + enemy.platform.width) {
+          enemy.x = enemy.platform.x + enemy.platform.width - enemy.width;
+          enemy.velocityX *= -1;
+        }
+        // Vertikal bevegelse: hvis fienden faller under plattformen, juster den
+        if (enemy.y + enemy.height > enemy.platform.y) {
+          enemy.y = enemy.platform.y - enemy.height;
+          enemy.velocityY = 0;
+        }
+        // Tilfeldig "hopp" – hvis fienden står på plattformen
+        if (enemy.velocityY === 0 && Math.random() < 0.005) {
+          enemy.velocityY = -JUMP_STRENGTH * (0.8 + Math.random() * 0.4);
+        }
+      });
+
+      // --- Toast-melding ---
+      if (toastTimer > 0) {
+        toastTimer--;
+        if (toastTimer <= 0) {
+          toastMessage = "";
+        }
+      }
+    }
+
+    // Tegn alt på canvas
+    function draw() {
+      // Bakgrunn
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#222";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Tegn lavaen nederst
+      ctx.fillStyle = "red";
+      ctx.fillRect(0, canvas.height - LAVA_HEIGHT, canvas.width, LAVA_HEIGHT);
+
+      // Tegn plattformene – bruk "☁️" for normale og "🍰" for kakeplattformen
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = "20px sans-serif";
+      platforms.forEach(plat => {
+        const emoji = (plat.type === "cake") ? "🍰" : "☁️";
+        ctx.fillText(emoji, plat.x + plat.width / 2, plat.y + plat.height / 2);
+      });
+
+      // Tegn spilleren – 🧍 for stående, 🏃 for løpende (avhengig av bevegelse)
+      ctx.font = "30px sans-serif";
+      ctx.textAlign = "center";
+      let playerEmoji = (Math.abs(player.velocityX) > 0.5) ? "🏃" : "🧍";
+      ctx.fillText(playerEmoji, player.x + player.width / 2, player.y + player.height / 2);
+
+      // Tegn fiendene
+      ctx.font = "30px sans-serif";
+      enemies.forEach(enemy => {
+        ctx.fillText(enemy.emoji, enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
+      });
+
+      // Vis nivåinformasjon
+      ctx.font = "16px sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillStyle = "#fff";
+      ctx.fillText("Nivå: " + level, 10, 20);
+
+      // Vis toast-melding om aktuelt
+      if (toastMessage) {
+        ctx.font = "24px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillStyle = "yellow";
+        ctx.fillText(toastMessage, canvas.width / 2, canvas.height / 2);
+      }
+    }
+
+    // Spill-løkke
+    function gameLoop() {
+      update();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    gameLoop();
+  </script>
+</body>
+</html>
