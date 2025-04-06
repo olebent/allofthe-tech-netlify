@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bug Invaders</title>
+  <style>
+    body {
+      margin: 0;
+      text-align: center;
+      background-color: #000;
+      color: #fff;
+      font-family: sans-serif;
+      overflow: hidden;
+    }
+    canvas {
+      background: #111;
+      display: block;
+      margin: 0 auto;
+      touch-action: none; /* Forhindrer standard zoom/scroll på berøringsskjermer */
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="480" height="640"></canvas>
+  
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = "24px sans-serif";
+
+    // Toast-melding: nå plassert ca 20% ned fra toppen (20% av canvas-høyden)
+    let toast = { text: "", expiry: 0 };
+    function showToast(message, duration) {
+      toast.text = message;
+      toast.expiry = performance.now() + duration;
+    }
+
+    // Maksimalt nivå
+    const maxLevel = 7;
+    // Startnivå
+    let level = 1;
+    
+    // Grunnleggende monsterhastighet
+    const baseMonsterSpeed = 1;
+    // Effektiv horisontal hastighet (øker med nivå)
+    let effectiveMonsterSpeed = baseMonsterSpeed * (1 + 0.5 * (level - 1));
+
+    // Grunnleggende skudd-hastighet for spilleren
+    const basePlayerBulletSpeed = 7;
+    
+    // Spilleren (robot) med utvidet hitbox og bevegelseshastighet
+    const player = {
+      x: canvas.width / 2,
+      y: canvas.height - 30,
+      width: 40,
+      height: 40,
+      speed: 10,
+      emoji: "🤖"
+    };
+
+    let playerShots = [];
+    let monsterShots = [];
+
+    // Monster-innstillinger
+    let monsters = [];
+    const monsterRows = 3;
+    const monsterCols = 6;
+    const monsterSpacingX = 60;
+    const monsterSpacingY = 50;
+    const monsterStartX = 50;
+    const monsterStartY = 30;
+    let monsterDirection = 1;  // 1 = til høyre, -1 = til venstre
+
+    let monstersDestroyed = 0;
+    let halfDestroyedTriggered = false;
+    // Brukes for å øke hastigheten (f.eks. når Odin "blir sint")
+    let speedMultiplier = 1;
+
+    // For monster-skyting
+    let monsterShootInterval = 1000; // ms
+    let lastMonsterShootTime = 0;
+
+    // Emoji-alternativer for de alternative monstrene (utenom de som er 👾)
+    const alternateEmojisNonPoo = ["🤖", "👻", "💀", "🐙", "🧟", "🧛"];
+
+    // Oppretter monstrene i et grid.
+    // For annethvert monster bestemmes om det skal vises som "💩" basert på nivået (økt sjanse for "💩" for høyere nivå).
+    function initMonsters() {
+      monsters = [];
+      // Sannsynligheten for "💩": fra 20 % på nivå 1 til 80 % på nivå 7.
+      let pooProbability = 0.2 + (level - 1) * 0.1;
+      const totalMonstre = monsterRows * monsterCols;
+      for (let i = 0; i < totalMonstre; i++) {
+        let row = Math.floor(i / monsterCols);
+        let col = i % monsterCols;
+        let emoji;
+        if (i % 2 === 0) {
+          emoji = "👾";
+        } else {
+          if (Math.random() < pooProbability) {
+            emoji = "💩";
+          } else {
+            emoji = alternateEmojisNonPoo[Math.floor(Math.random() * alternateEmojisNonPoo.length)];
+          }
+        }
+        monsters.push({
+          x: monsterStartX + col * monsterSpacingX,
+          y: monsterStartY + row * monsterSpacingY,
+          width: 32,
+          height: 32,
+          emoji: emoji
+        });
+      }
+    }
+    initMonsters();
+
+    // Variabler for bevegelse (styring via tastatur, mus og berøring)
+    let moveLeft = false;
+    let moveRight = false;
+
+    // --- Tastaturkontroll ---
+    window.addEventListener('keydown', (e) => {
+      if (e.code === "ArrowLeft") moveLeft = true;
+      if (e.code === "ArrowRight") moveRight = true;
+      if (e.code === "Space") {
+        // Ekstra skudd ved space
+        shoot();
+      }
+    });
+    window.addEventListener('keyup', (e) => {
+      if (e.code === "ArrowLeft") moveLeft = false;
+      if (e.code === "ArrowRight") moveRight = false;
+    });
+
+    // --- Musekontroll på canvas ---
+    canvas.addEventListener('mousedown', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      if (y < canvas.height / 3) {
+        // Øverste tredjedel: ekstra skudd
+        shoot();
+      } else {
+        if (x < canvas.width / 2) {
+          moveLeft = true;
+        } else {
+          moveRight = true;
+        }
+      }
+    });
+    canvas.addEventListener('mouseup', () => {
+      moveLeft = false;
+      moveRight = false;
+    });
+
+    // --- Berøringskontroll på canvas ---
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      // Resetter bevegelses-flag for hver ny berøring
+      moveLeft = false;
+      moveRight = false;
+      for (let touch of e.touches) {
+        const x = touch.clientX - rect.left;
+        const y = touch.clientY - rect.top;
+        if (y < canvas.height / 3) {
+          shoot();
+        } else {
+          if (x < canvas.width / 2) {
+            moveLeft = true;
+          } else {
+            moveRight = true;
+          }
+        }
+      }
+    });
+    canvas.addEventListener('touchend', (e) => {
+      // Hvis ingen berøringer igjen, stopp bevegelsen
+      if (e.touches.length === 0) {
+        moveLeft = false;
+        moveRight = false;
+      }
+    });
+
+    // Spillerskudd: regner ut effektiv skudd-hastighet basert på nivå (øker med 40 % per nivå)
+    function shoot() {
+      let effectiveBulletSpeed = basePlayerBulletSpeed * (1 + 0.4 * (level - 1));
+      playerShots.push({
+        x: player.x,
+        y: player.y - player.height / 2,
+        width: 4,
+        height: 10,
+        speed: effectiveBulletSpeed
+      });
+    }
+
+    // Automatisk skyting hvert 500 ms
+    setInterval(shoot, 500);
+
+    // Spill-løkken
+    function gameLoop(timestamp) {
+      update(timestamp);
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function update(timestamp) {
+      // Oppdater spillerens posisjon basert på kontrollene
+      if (moveLeft) {
+        player.x -= player.speed;
+        if (player.x < 0) player.x = 0;
+      }
+      if (moveRight) {
+        player.x += player.speed;
+        if (player.x > canvas.width) player.x = canvas.width;
+      }
+
+      // Oppdater spillerens skudd (flytter oppover)
+      for (let i = playerShots.length - 1; i >= 0; i--) {
+        const shot = playerShots[i];
+        shot.y -= shot.speed;
+        if (shot.y < 0) {
+          playerShots.splice(i, 1);
+        }
+      }
+
+      // Oppdater monstrets skudd (flytter nedover)
+      for (let i = monsterShots.length - 1; i >= 0; i--) {
+        const shot = monsterShots[i];
+        shot.y += shot.speed;
+        if (shot.y > canvas.height) {
+          monsterShots.splice(i, 1);
+        }
+      }
+
+      // Beveg monsterne horisontalt med nivåavhengig hastighet
+      let hitEdge = false;
+      monsters.forEach(monster => {
+        monster.x += effectiveMonsterSpeed * speedMultiplier * monsterDirection;
+        if (monster.x < 0 || monster.x + monster.width > canvas.width) {
+          hitEdge = true;
+        }
+      });
+      // Ved treff mot kant: snu retning og flytt nedover
+      if (hitEdge) {
+        monsterDirection = -monsterDirection;
+        monsters.forEach(monster => {
+          monster.y += 20 * speedMultiplier;
+        });
+      }
+
+      // Tilfeldig monster skyter lyn mot spilleren
+      if (timestamp - lastMonsterShootTime > monsterShootInterval / speedMultiplier) {
+        if (monsters.length > 0) {
+          let shooter = monsters[Math.floor(Math.random() * monsters.length)];
+          monsterShots.push({
+            x: shooter.x,
+            y: shooter.y + shooter.height / 2,
+            width: 4,
+            height: 10,
+            speed: 5 * speedMultiplier,
+            emoji: "⚡"
+          });
+        }
+        lastMonsterShootTime = timestamp;
+      }
+
+      // Kollisjonsdeteksjon: spillerens skudd vs. monstre
+      for (let i = playerShots.length - 1; i >= 0; i--) {
+        const shot = playerShots[i];
+        for (let j = monsters.length - 1; j >= 0; j--) {
+          const monster = monsters[j];
+          if (collision(shot, monster)) {
+            monsters.splice(j, 1);
+            playerShots.splice(i, 1);
+            monstersDestroyed++;
+            // Når halvparten av monstrene er ødelagt på nivå 1: øk hastigheten
+            if (!halfDestroyedTriggered && monstersDestroyed >= (monsterRows * monsterCols) / 2 && level === 1) {
+              halfDestroyedTriggered = true;
+              speedMultiplier = 1.5;
+              showToast("Nå ble Odin sint, så nå går det fortere!", 3000);
+            }
+            break;
+          }
+        }
+      }
+
+      // Kollisjonsdeteksjon: monster-skyttene vs. spilleren (utvidet hitbox)
+      for (let i = monsterShots.length - 1; i >= 0; i--) {
+        const shot = monsterShots[i];
+        if (collision(shot, player)) {
+          showToast("Game Over! Du ble truffet av lynet.", 3000);
+          setTimeout(resetGame, 3000);
+          return;
+        }
+      }
+
+      // Sjekk om et monster har nådd bunnen
+      for (let i = 0; i < monsters.length; i++) {
+        if (monsters[i].y + monsters[i].height > canvas.height) {
+          showToast("Game Over! Monstrene nådde bakken.", 3000);
+          setTimeout(resetGame, 3000);
+          return;
+        }
+      }
+
+      // Nivåbytte: Når alle monstre er beseiret
+      if (monsters.length === 0) {
+        if (level < maxLevel) {
+          level++;
+          effectiveMonsterSpeed = baseMonsterSpeed * (1 + 0.5 * (level - 1));
+          monstersDestroyed = 0;
+          halfDestroyedTriggered = false;
+          speedMultiplier = 1;
+          initMonsters();
+          showToast("Nivå " + level + "! Monstrene er " + ( (1 + 0.5 * (level - 1)) * 100 ).toFixed(0) + "% raske enn nivå 1!", 3000);
+        } else {
+          showToast("Gratulerer, du vant!", 3000);
+          setTimeout(resetGame, 3000);
+          return;
+        }
+      }
+    }
+
+    // Tegn alle elementene på canvas
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Tegn spilleren (robot)
+      ctx.fillText(player.emoji, player.x, player.y);
+
+      // Tegn monstre
+      monsters.forEach(monster => {
+        ctx.fillText(monster.emoji, monster.x, monster.y);
+      });
+
+      // Tegn spillerens skudd (spyd)
+      playerShots.forEach(shot => {
+        ctx.fillStyle = "#FFF";
+        ctx.fillRect(shot.x - shot.width / 2, shot.y - shot.height, shot.width, shot.height);
+      });
+      ctx.fillStyle = "#FFF";
+
+      // Tegn monster-skyttene (lyn)
+      monsterShots.forEach(shot => {
+        ctx.fillText(shot.emoji, shot.x, shot.y);
+      });
+
+      // Tegn toast-meldingen (ca 20% fra toppen)
+      if (performance.now() < toast.expiry && toast.text) {
+        ctx.fillStyle = "#FFD700";
+        ctx.font = "20px sans-serif";
+        ctx.fillText(toast.text, canvas.width / 2, canvas.height * 0.2);
+        ctx.font = "24px sans-serif";
+        ctx.fillStyle = "#FFF";
+      }
+    }
+
+    // Enkel rektangulær kollisjonsdeteksjon
+    function collision(a, b) {
+      return a.x < b.x + b.width &&
+             a.x + a.width > b.x &&
+             a.y < b.y + b.height &&
+             a.y + a.height > b.y;
+    }
+
+    // Tilbakestill spillet ved Game Over eller ved fullført spill
+    function resetGame() {
+      player.x = canvas.width / 2;
+      playerShots = [];
+      monsterShots = [];
+      monstersDestroyed = 0;
+      halfDestroyedTriggered = false;
+      speedMultiplier = 1;
+      level = 1;
+      effectiveMonsterSpeed = baseMonsterSpeed * (1 + 0.5 * (level - 1));
+      initMonsters();
+      toast.text = "";
+    }
+
+    requestAnimationFrame(gameLoop);
+  </script>
+</body>
+</html>
