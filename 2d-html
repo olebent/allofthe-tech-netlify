@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2D Plattformspill</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #222;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      background: #444;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="500" height="400"></canvas>
+  <script>
+    // Hent canvas og kontekst
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Spillkonfigurasjon
+    const GRAVITY = 0.8;
+    const PLAYER_SPEED = 3;
+    const JUMP_STRENGTH = 15;
+    const GROUND_HEIGHT = 50;
+
+    // Spilleren
+    const player = {
+      x: 50,
+      y: canvas.height - GROUND_HEIGHT - 40, // Spillerhøyde er 40
+      width: 30,
+      height: 40,
+      velocityX: 0,
+      velocityY: 0,
+      onGround: false
+    };
+
+    // Kontrollvariabler
+    const keys = {};
+    let touchLeft = false;
+    let touchRight = false;
+
+    // Tastaturkontroller
+    document.addEventListener('keydown', (e) => {
+      keys[e.code] = true;
+    });
+    document.addEventListener('keyup', (e) => {
+      keys[e.code] = false;
+    });
+
+    // Berøringskontroller (mobil)
+    canvas.addEventListener('pointerdown', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      // Trykk i øverste tredjedel: hopp
+      if (y < canvas.height / 3) {
+        if (player.onGround) {
+          player.velocityY = -JUMP_STRENGTH;
+          player.onGround = false;
+        }
+      } else {
+        // Nederste to tredjedeler: sjekk horisontal posisjon
+        if (x < canvas.width / 2) {
+          touchLeft = true;
+        } else {
+          touchRight = true;
+        }
+      }
+    });
+
+    canvas.addEventListener('pointerup', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      if (y >= canvas.height / 3) {
+        if (x < canvas.width / 2) {
+          touchLeft = false;
+        } else {
+          touchRight = false;
+        }
+      }
+    });
+
+    // Spillloopen
+    function update() {
+      // Håndter tastatur og berøring
+      const movingLeft = keys['ArrowLeft'] || touchLeft;
+      const movingRight = keys['ArrowRight'] || touchRight;
+      const jump = keys['ArrowUp'] || keys['Space'];
+
+      if (jump && player.onGround) {
+        player.velocityY = -JUMP_STRENGTH;
+        player.onGround = false;
+      }
+
+      if (movingLeft) {
+        player.velocityX = -PLAYER_SPEED;
+      } else if (movingRight) {
+        player.velocityX = PLAYER_SPEED;
+      } else {
+        player.velocityX = 0;
+      }
+
+      // Påfør tyngdekraft og oppdater posisjon
+      player.velocityY += GRAVITY;
+      player.x += player.velocityX;
+      player.y += player.velocityY;
+
+      // Kollisjon med veggene
+      if (player.x < 0) {
+        player.x = 0;
+      } else if (player.x + player.width > canvas.width) {
+        player.x = canvas.width - player.width;
+      }
+
+      // Kollisjon med bakken
+      const groundY = canvas.height - GROUND_HEIGHT;
+      if (player.y + player.height > groundY) {
+        player.y = groundY - player.height;
+        player.velocityY = 0;
+        player.onGround = true;
+      }
+    }
+
+    function draw() {
+      // Tøm skjermen
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Tegn bakgrunnen
+      ctx.fillStyle = '#444';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Tegn bakken
+      ctx.fillStyle = '#654321';
+      ctx.fillRect(0, canvas.height - GROUND_HEIGHT, canvas.width, GROUND_HEIGHT);
+
+      // Tegn spilleren
+      ctx.fillStyle = '#ff0';
+      ctx.fillRect(player.x, player.y, player.width, player.height);
+    }
+
+    function gameLoop() {
+      update();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    // Start spillloopen
+    gameLoop();
+  </script>
+</body>
+</html>
