@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bug Invaders</title>
+  <style>
+    body {
+      margin: 0;
+      text-align: center;
+      background-color: #000;
+      color: #fff;
+      font-family: sans-serif;
+    }
+    canvas {
+      background: #111;
+      display: block;
+      margin: 0 auto;
+    }
+    .controls {
+      margin-top: 10px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin: 5px;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="480" height="640"></canvas>
+  <div class="controls">
+    <button id="leftBtn">Venstre</button>
+    <button id="shootBtn">Skyt</button>
+    <button id="rightBtn">Høyre</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = "24px sans-serif"; // juster etter behov
+
+    // Spilleren (viking) med emoji
+    const player = {
+      x: canvas.width / 2,
+      y: canvas.height - 30,
+      width: 32,
+      height: 32,
+      speed: 5,
+      emoji: "🧔"
+    };
+
+    // Lister for prosjektiler
+    let playerShots = [];
+    let monsterShots = [];
+
+    // Monster-innstillinger
+    const monsterEmoji = "👾";
+    let monsters = [];
+    const monsterRows = 3;
+    const monsterCols = 6;
+    const monsterSpacingX = 60;
+    const monsterSpacingY = 50;
+    const monsterStartX = 50;
+    const monsterStartY = 30;
+    let monsterSpeed = 1; // grunnhastighet for nedover bevegelse
+
+    let monstersDestroyed = 0;
+    let halfDestroyedTriggered = false;
+
+    // For monstrets skuddfrekvens
+    let monsterShootInterval = 1000; // i millisekunder
+    let lastMonsterShootTime = 0;
+
+    // Hastighetsøkning etter at halvparten er ødelagt
+    let speedMultiplier = 1;
+
+    // Initialiserer monsterene i et grid
+    function initMonsters() {
+      monsters = [];
+      for (let row = 0; row < monsterRows; row++) {
+        for (let col = 0; col < monsterCols; col++) {
+          monsters.push({
+            x: monsterStartX + col * monsterSpacingX,
+            y: monsterStartY + row * monsterSpacingY,
+            width: 32,
+            height: 32,
+            emoji: monsterEmoji
+          });
+        }
+      }
+    }
+    initMonsters();
+
+    // Kontrollknapper
+    document.getElementById('leftBtn').addEventListener('click', () => {
+      player.x -= player.speed;
+      if (player.x < 0) player.x = 0;
+    });
+
+    document.getElementById('rightBtn').addEventListener('click', () => {
+      player.x += player.speed;
+      if (player.x > canvas.width) player.x = canvas.width;
+    });
+
+    document.getElementById('shootBtn').addEventListener('click', shoot);
+
+    // Spillerskudd: Legger til et nytt skudd fra spilleren
+    function shoot() {
+      playerShots.push({
+        x: player.x,
+        y: player.y - player.height / 2,
+        width: 4,
+        height: 10,
+        speed: 7 * speedMultiplier
+      });
+    }
+
+    // Spill-løkken med requestAnimationFrame
+    function gameLoop(timestamp) {
+      update(timestamp);
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    // Oppdaterer posisjonene for alle elementene
+    function update(timestamp) {
+      // Oppdater spillerens skudd (beveg oppover)
+      for (let i = playerShots.length - 1; i >= 0; i--) {
+        const shot = playerShots[i];
+        shot.y -= shot.speed;
+        if (shot.y < 0) {
+          playerShots.splice(i, 1);
+        }
+      }
+
+      // Oppdater monstrets skudd (beveg nedover)
+      for (let i = monsterShots.length - 1; i >= 0; i--) {
+        const shot = monsterShots[i];
+        shot.y += shot.speed;
+        if (shot.y > canvas.height) {
+          monsterShots.splice(i, 1);
+        }
+      }
+
+      // Flytt monsterne sakte nedover
+      monsters.forEach(monster => {
+        monster.y += monsterSpeed * speedMultiplier;
+      });
+
+      // La et tilfeldig monster skyte lyn med jevne mellomrom
+      if (timestamp - lastMonsterShootTime > monsterShootInterval / speedMultiplier) {
+        if (monsters.length > 0) {
+          let shooter = monsters[Math.floor(Math.random() * monsters.length)];
+          monsterShots.push({
+            x: shooter.x,
+            y: shooter.y + shooter.height / 2,
+            width: 4,
+            height: 10,
+            speed: 5 * speedMultiplier,
+            emoji: "⚡"
+          });
+        }
+        lastMonsterShootTime = timestamp;
+      }
+
+      // Sjekk kollisjon mellom spillerens skudd og monsterne
+      for (let i = playerShots.length - 1; i >= 0; i--) {
+        const shot = playerShots[i];
+        for (let j = monsters.length - 1; j >= 0; j--) {
+          const monster = monsters[j];
+          if (collision(shot, monster)) {
+            monsters.splice(j, 1);
+            playerShots.splice(i, 1);
+            monstersDestroyed++;
+            // Når halvparten av monsterne er ødelagt:
+            if (!halfDestroyedTriggered && monstersDestroyed >= (monsterRows * monsterCols) / 2) {
+              halfDestroyedTriggered = true;
+              speedMultiplier = 1.5; // Øk hastigheten
+              setTimeout(() => {
+                alert("Nå ble Odin sint, så nå går det fortere!");
+              }, 10);
+            }
+            break;
+          }
+        }
+      }
+
+      // Sjekk om et monstrets skudd treffer spilleren
+      for (let i = monsterShots.length - 1; i >= 0; i--) {
+        const shot = monsterShots[i];
+        if (collision(shot, player)) {
+          alert("Game Over! Du ble truffet av lynet.");
+          resetGame();
+          return;
+        }
+      }
+
+      // Sjekk om et monster har nådd bunnen
+      for (let i = 0; i < monsters.length; i++) {
+        if (monsters[i].y + monsters[i].height > canvas.height) {
+          alert("Game Over! Monstrene nådde bakken.");
+          resetGame();
+          return;
+        }
+      }
+    }
+
+    // Tegn alle elementene på canvas
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Tegn spilleren (viking)
+      ctx.fillText(player.emoji, player.x, player.y);
+
+      // Tegn monsterne
+      monsters.forEach(monster => {
+        ctx.fillText(monster.emoji, monster.x, monster.y);
+      });
+
+      // Tegn spillerens skudd (som spyd)
+      playerShots.forEach(shot => {
+        ctx.fillStyle = "#FFF";
+        ctx.fillRect(shot.x - shot.width / 2, shot.y - shot.height, shot.width, shot.height);
+      });
+      ctx.fillStyle = "#FFF"; // sett farge tilbake for tekst
+
+      // Tegn monstrets skudd (lyn)
+      monsterShots.forEach(shot => {
+        ctx.fillText(shot.emoji, shot.x, shot.y);
+      });
+    }
+
+    // Enkel kollisjonsdeteksjon basert på rektangler
+    function collision(a, b) {
+      return a.x < b.x + b.width &&
+             a.x + a.width > b.x &&
+             a.y < b.y + b.height &&
+             a.y + a.height > b.y;
+    }
+
+    // Tilbakestill spillet ved game over
+    function resetGame() {
+      player.x = canvas.width / 2;
+      playerShots = [];
+      monsterShots = [];
+      monstersDestroyed = 0;
+      halfDestroyedTriggered = false;
+      speedMultiplier = 1;
+      initMonsters();
+    }
+
+    requestAnimationFrame(gameLoop);
+  </script>
+</body>
+</html>
