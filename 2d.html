@@ -13,39 +13,48 @@
     }
     canvas {
       display: block;
-      background: #444;
+      background: #333;
       margin: 0 auto;
     }
   </style>
 </head>
 <body>
-  <canvas id="gameCanvas" width="500" height="400"></canvas>
+  <!-- Spillområdet: bredde 500px, høyde 844px (passer bra på f.eks. iPhone 14 i portrettmodus) -->
+  <canvas id="gameCanvas" width="500" height="844"></canvas>
   <script>
     // Hent canvas og kontekst
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
 
-    // Spillkonfigurasjon
+    // Globale variabler
+    let level = 1;
+    const maxLevel = 7;
+    let platforms = [];
+    let toastMessage = "";
+    let toastTimer = 0;
+
+    // Spillkonstanter
     const GRAVITY = 0.8;
     const PLAYER_SPEED = 3;
     const JUMP_STRENGTH = 15;
-    const GROUND_HEIGHT = 50;
+    const LAVA_HEIGHT = 50; // Lavaen vises nederst
+    const PLAYER_WIDTH = 30;
+    const PLAYER_HEIGHT = 40;
 
-    // Spilleren
+    // Spilleren – posisjon, hastighet og tilstand
     const player = {
-      x: 50,
-      y: canvas.height - GROUND_HEIGHT - 40, // Spillerhøyde er 40
-      width: 30,
-      height: 40,
+      x: 0,
+      y: 0,
+      width: PLAYER_WIDTH,
+      height: PLAYER_HEIGHT,
       velocityX: 0,
       velocityY: 0,
       onGround: false
     };
 
-    // Kontrollvariabler
+    // Kontrollvariabler for tastatur og berøring
     const keys = {};
-    let touchLeft = false;
-    let touchRight = false;
+    let touchLeft = false, touchRight = false;
 
     // Tastaturkontroller
     document.addEventListener('keydown', (e) => {
@@ -55,20 +64,19 @@
       keys[e.code] = false;
     });
 
-    // Berøringskontroller (mobil)
+    // Berøringskontroller (for mobil)
     canvas.addEventListener('pointerdown', (e) => {
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
-
-      // Trykk i øverste tredjedel: hopp
+      // Trykk i øverste tredjedel for å hoppe
       if (y < canvas.height / 3) {
         if (player.onGround) {
           player.velocityY = -JUMP_STRENGTH;
           player.onGround = false;
         }
       } else {
-        // Nederste to tredjedeler: sjekk horisontal posisjon
+        // Nederste to tredjedeler: sjekk horisontal retning
         if (x < canvas.width / 2) {
           touchLeft = true;
         } else {
@@ -76,7 +84,6 @@
         }
       }
     });
-
     canvas.addEventListener('pointerup', (e) => {
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
@@ -90,72 +97,51 @@
       }
     });
 
-    // Spillloopen
-    function update() {
-      // Håndter tastatur og berøring
-      const movingLeft = keys['ArrowLeft'] || touchLeft;
-      const movingRight = keys['ArrowRight'] || touchRight;
-      const jump = keys['ArrowUp'] || keys['Space'];
-
-      if (jump && player.onGround) {
-        player.velocityY = -JUMP_STRENGTH;
-        player.onGround = false;
+    // Funksjon for å generere nivåets plattformer
+    // Antall plattformer = 2 + (nivå - 1)*2. Første plattform er start, siste har kake-emoji.
+    function generateLevel(level) {
+      const numPlatforms = 2 + (level - 1) * 2;
+      const plats = [];
+      const marginTop = 50; // øvre margin for plattformene
+      // Vertikal spacing mellom plattformene
+      const spacing = (canvas.height - LAVA_HEIGHT - marginTop) / (numPlatforms - 1);
+      for (let i = 0; i < numPlatforms; i++) {
+        const y = canvas.height - LAVA_HEIGHT - i * spacing;
+        const width = 80;
+        const height = 20;
+        let x;
+        if (i === 0) {
+          // Startplattformen plasseres midt på skjermen
+          x = (canvas.width - width) / 2;
+        } else {
+          // Plasser de andre plattformene med noe variasjon horisontalt
+          x = Math.random() * (canvas.width - width);
+        }
+        // Siste plattform skal ha kake-emoji
+        const type = (i === numPlatforms - 1) ? "cake" : "normal";
+        plats.push({ x, y, width, height, type });
       }
+      return plats;
+    }
 
-      if (movingLeft) {
-        player.velocityX = -PLAYER_SPEED;
-      } else if (movingRight) {
-        player.velocityX = PLAYER_SPEED;
+    // Initialiser nivået: generer plattformer og plasser spilleren på startplattformen
+    function initLevel() {
+      platforms = generateLevel(level);
+      const startPlat = platforms[0];
+      player.x = startPlat.x + (startPlat.width - player.width) / 2;
+      player.y = startPlat.y - player.height;
+      player.velocityX = 0;
+      player.velocityY = 0;
+      player.onGround = true;
+    }
+
+    initLevel();
+
+    // Funksjon for å gå videre til neste nivå
+    function nextLevel() {
+      if (level < maxLevel) {
+        level++;
+        initLevel();
       } else {
-        player.velocityX = 0;
-      }
-
-      // Påfør tyngdekraft og oppdater posisjon
-      player.velocityY += GRAVITY;
-      player.x += player.velocityX;
-      player.y += player.velocityY;
-
-      // Kollisjon med veggene
-      if (player.x < 0) {
-        player.x = 0;
-      } else if (player.x + player.width > canvas.width) {
-        player.x = canvas.width - player.width;
-      }
-
-      // Kollisjon med bakken
-      const groundY = canvas.height - GROUND_HEIGHT;
-      if (player.y + player.height > groundY) {
-        player.y = groundY - player.height;
-        player.velocityY = 0;
-        player.onGround = true;
-      }
-    }
-
-    function draw() {
-      // Tøm skjermen
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // Tegn bakgrunnen
-      ctx.fillStyle = '#444';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // Tegn bakken
-      ctx.fillStyle = '#654321';
-      ctx.fillRect(0, canvas.height - GROUND_HEIGHT, canvas.width, GROUND_HEIGHT);
-
-      // Tegn spilleren
-      ctx.fillStyle = '#ff0';
-      ctx.fillRect(player.x, player.y, player.width, player.height);
-    }
-
-    function gameLoop() {
-      update();
-      draw();
-      requestAnimationFrame(gameLoop);
-    }
-
-    // Start spillloopen
-    gameLoop();
-  </script>
-</body>
-</html>
+        toastMessage = "Du klarte det! Nå, gå og spill Portal i stedet";
+        // Stopper bevegelse –
