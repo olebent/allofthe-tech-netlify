@@ -3,10 +3,10 @@ class StartScene extends Phaser.Scene {
     super({ key: 'StartScene' });
   }
   preload() {
-    // Preload assets if needed
+    // Optionally preload assets here
   }
   create() {
-    // Immediately start the GameScene
+    // Immediately transition to the GameScene
     this.scene.start('GameScene');
   }
 }
@@ -18,18 +18,16 @@ class GameScene extends Phaser.Scene {
     this.playerMovingRight = false;
   }
   preload() {
-    // Create textures using basic shapes
-
-    // Create graphics instance
+    // Use a graphics instance to create basic textures
     const graphics = this.add.graphics();
 
-    // Player: green rectangle (50x30)
+    // Create player texture: green rectangle (50x30)
     graphics.fillStyle(0x00ff00, 1);
     graphics.fillRect(0, 0, 50, 30);
     graphics.generateTexture('player', 50, 30);
     graphics.clear();
 
-    // Left button: white left arrow (drawn as a triangle)
+    // Create left button texture: white left arrow (triangle)
     graphics.fillStyle(0xffffff, 1);
     graphics.beginPath();
     graphics.moveTo(35, 20);
@@ -40,7 +38,7 @@ class GameScene extends Phaser.Scene {
     graphics.generateTexture('leftButton', 45, 40);
     graphics.clear();
 
-    // Right button: white right arrow (drawn as a triangle)
+    // Create right button texture: white right arrow (triangle)
     graphics.fillStyle(0xffffff, 1);
     graphics.beginPath();
     graphics.moveTo(10, 20);
@@ -52,16 +50,14 @@ class GameScene extends Phaser.Scene {
     graphics.clear();
   }
   create() {
-    // Create the player at the bottom center of the screen
+    // Create the player sprite at bottom center
     this.player = this.physics.add.sprite(400, 550, 'player');
     this.player.setCollideWorldBounds(true);
 
     // Set up keyboard cursors for left/right movement
     this.cursors = this.input.keyboard.createCursorKeys();
 
-    // Create virtual left/right buttons for mobile users
-
-    // Left button placed near bottom-left
+    // Create virtual left button for mobile (positioned bottom-left)
     this.leftButton = this.add.sprite(60, 550, 'leftButton')
       .setInteractive()
       .setScrollFactor(0)
@@ -70,7 +66,7 @@ class GameScene extends Phaser.Scene {
     this.leftButton.on('pointerup', () => { this.playerMovingLeft = false; });
     this.leftButton.on('pointerout', () => { this.playerMovingLeft = false; });
 
-    // Right button placed next to the left button
+    // Create virtual right button for mobile (positioned next to the left button)
     this.rightButton = this.add.sprite(130, 550, 'rightButton')
       .setInteractive()
       .setScrollFactor(0)
@@ -79,19 +75,19 @@ class GameScene extends Phaser.Scene {
     this.rightButton.on('pointerup', () => { this.playerMovingRight = false; });
     this.rightButton.on('pointerout', () => { this.playerMovingRight = false; });
   }
-  update(time, delta) {
+  update() {
     const velocity = 200;
-    // Reset player's velocity
+    // Reset horizontal velocity each frame
     this.player.setVelocityX(0);
 
-    // Check keyboard input first
+    // Keyboard input
     if (this.cursors.left.isDown) {
       this.player.setVelocityX(-velocity);
     } else if (this.cursors.right.isDown) {
       this.player.setVelocityX(velocity);
     }
 
-    // Then check mobile (touch) input
+    // Touch input (virtual buttons)
     if (this.playerMovingLeft) {
       this.player.setVelocityX(-velocity);
     } else if (this.playerMovingRight) {
@@ -100,7 +96,7 @@ class GameScene extends Phaser.Scene {
   }
 }
 
-// Use ES6 const for configuration, as Phaser recommends modern syntax
+// Use ES6 constants for configuration as recommended
 const config = {
   type: Phaser.AUTO,
   width: 800,
