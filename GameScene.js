@@ -4,9 +4,6 @@ class GameScene extends Phaser.Scene {
 	}
 
 	preload() {
-		this.load.image('bug1', 'https://content.codecademy.com/courses/learn-phaser/physics/bug_1.png');
-		this.load.image('bug2', 'https://content.codecademy.com/courses/learn-phaser/physics/bug_2.png');
-		this.load.image('bug3', 'https://content.codecademy.com/courses/learn-phaser/physics/bug_3.png');
 		this.load.image('platform', 'https://content.codecademy.com/courses/learn-phaser/physics/platform.png');
 		this.load.image('codey', 'https://content.codecademy.com/courses/learn-phaser/physics/codey.png');
 	}
@@ -63,13 +60,21 @@ class GameScene extends Phaser.Scene {
 		});
 	}
 
-	update() {
-		if (gameState.cursors.left.isDown) {
-			gameState.player.setVelocityX(-160);
-		} else if (gameState.cursors.right.isDown) {
-			gameState.player.setVelocityX(160);
-		} else {
-			gameState.player.setVelocityX(0);
-		}
-	}
+update() {
+    // Desktop-kontroll via tastatur
+    if (this.cursors.left.isDown) {
+      this.player.setVelocityX(-160);
+    } else if (this.cursors.right.isDown) {
+      this.player.setVelocityX(160);
+    } else {
+      // Mobilkontroll: sjekk berøringsinput
+      if (this.touchLeft) {
+        this.player.setVelocityX(-160);
+      } else if (this.touchRight) {
+        this.player.setVelocityX(160);
+      } else {
+        this.player.setVelocityX(0);
+      }
+    }
+  }
 }
