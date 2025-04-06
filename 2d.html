@@ -19,14 +19,14 @@
   </style>
 </head>
 <body>
-  <!-- Spillområdet er satt til 500x844 (passer fint på moderne mobiler) -->
+  <!-- Spillområdet satt til 500x844 (passer for eksempel på iPhone 14 i portrettmodus) -->
   <canvas id="gameCanvas" width="500" height="844"></canvas>
   <script>
     // Hent canvas og kontekst
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
 
-    // Globale variabler
+    // Globale variabler og nivådata
     let level = 1;
     const maxLevel = 7;
     let platforms = [];
@@ -104,7 +104,7 @@
       }
     });
 
-    // Enkle rektangulære kollisjonsdeteksjon
+    // Enkel rektangulær kollisjonsdeteksjon
     function checkCollision(a, b) {
       return a.x < b.x + b.width &&
              a.x + a.width > b.x &&
@@ -113,23 +113,27 @@
     }
 
     // Generer plattformer for nivået.
-    // Antall plattformer = 2 + (nivå-1)*2.
-    // Første plattform er start, siste plattform har kake (🍰).
+    // Nå får nivå 1 6 plattformer (start + 4 mellomliggende + kake-plattform),
+    // og hvert nivå øker antallet med 2.
     function generateLevel(level) {
-      const numPlatforms = 2 + (level - 1) * 2;
+      const numPlatforms = 6 + (level - 1) * 2;
       const plats = [];
-      const marginTop = 50; // øvre margin
-      const spacing = (canvas.height - LAVA_HEIGHT - marginTop) / (numPlatforms - 1);
+      const marginTop = 50; // øvre margin for den øverste plattformen
+      // For at startplattformen ikke skal ligge helt nederst, flytt den opp 100 piksler over lavaen
+      const startY = canvas.height - LAVA_HEIGHT - 100;
+      // Fordel plattformene jevnt mellom startY (nederst) og marginTop (øverst)
+      const spacing = (startY - marginTop) / (numPlatforms - 1);
       for (let i = 0; i < numPlatforms; i++) {
-        const y = canvas.height - LAVA_HEIGHT - i * spacing;
+        // Nederste plattform (i=0) er startplattformen, øverste (i=numPlatforms-1) har kake
+        const y = startY - i * spacing;
         const width = 80;
         const height = 20;
         let x;
         if (i === 0) {
-          // Startplattform plasseres midt på skjermen
+          // Startplattformen sentreres horisontalt
           x = (canvas.width - width) / 2;
         } else {
-          // Andre plattformer plasseres med litt horisontal variasjon
+          // De andre plattformene plasseres med litt horisontal variasjon
           x = Math.random() * (canvas.width - width);
         }
         const type = (i === numPlatforms - 1) ? "cake" : "normal";
@@ -141,7 +145,7 @@
     // Initialiser nivået: generer plattformer, plasser spilleren og fiendene
     function initLevel() {
       platforms = generateLevel(level);
-      // Plasser spilleren på startplattformen
+      // Plasser spilleren på startplattformen (plattform[0])
       const startPlat = platforms[0];
       player.x = startPlat.x + (startPlat.width - player.width) / 2;
       player.y = startPlat.y - player.height;
@@ -149,16 +153,15 @@
       player.velocityY = 0;
       player.onGround = true;
 
-      // Generer fiender: For hver plattform (unntatt start og kake-plattform) med en viss sannsynlighet
+      // Generer fiender på plattformer (unntatt start og kake-plattform)
       enemies = [];
       for (let i = 1; i < platforms.length - 1; i++) {
-        if (Math.random() < 0.7) {  // 70% sjanse for å få en fiende på plattformen
+        if (Math.random() < 0.7) {  // 70% sjanse for å få en fiende på en plattform
           const plat = platforms[i];
           const enemyWidth = 30, enemyHeight = 30;
-          // Plasser fienden et sted på plattformen (innenfor plattformens bredde)
           const ex = plat.x + Math.random() * (plat.width - enemyWidth);
           const ey = plat.y - enemyHeight;
-          // Sett en liten horisontal hastighet (enten til venstre eller høyre)
+          // Sett en liten horisontal hastighet (til venstre eller høyre)
           const velocityX = (Math.random() < 0.5 ? -1 : 1) * (1 + Math.random());
           enemies.push({
             x: ex,
@@ -176,7 +179,7 @@
 
     initLevel();
 
-    // Neste nivå: øk nivået eller vis vinner-melding
+    // Gå til neste nivå: øk nivået, eller vis vinnermelding om siste nivå er fullført
     function nextLevel() {
       if (level < maxLevel) {
         level++;
@@ -189,10 +192,9 @@
       }
     }
 
-    // Spilloppdatering
+    // Spilloppdatering: kontroller, fysikk, kollisjoner og fiendeoppdatering
     function update() {
-      // --- Spillers kontroll ---
-      // Bestem bevegelsesretning (tastatur eller berøring)
+      // --- Spillerkontroll ---
       const movingLeft = keys['ArrowLeft'] || touchLeft;
       const movingRight = keys['ArrowRight'] || touchRight;
       if (movingLeft) {
@@ -202,19 +204,15 @@
       } else {
         player.velocityX = 0;
       }
-      // Hoppesignal fra tastatur
       if ((keys['ArrowUp'] || keys['Space']) && player.onGround) {
         player.velocityY = -JUMP_STRENGTH;
         player.onGround = false;
       }
-
-      // Påfør tyngdekraft til spilleren
       player.velocityY += GRAVITY;
-
-      // --- Spilleren beveger seg – separat akseoppdatering for enklere kollisjon ---
-      // Horisontal bevegelse
+      
+      // --- Spilleren beveger seg (håndterer horisontale og vertikale kollisjoner separat) ---
       player.x += player.velocityX;
-      // Sjekk horisontale kollisjoner med fiender
+      // Horisontal kollisjon med fiender
       enemies.forEach(enemy => {
         if (checkCollision(player, enemy)) {
           if (player.velocityX > 0) {
@@ -225,15 +223,13 @@
           player.velocityX = 0;
         }
       });
-
-      // Vertikal bevegelse
       player.y += player.velocityY;
       enemies.forEach(enemy => {
         if (checkCollision(player, enemy)) {
-          if (player.velocityY > 0) { // faller
+          if (player.velocityY > 0) { // faller ned
             player.y = enemy.y - player.height;
             player.onGround = true;
-          } else if (player.velocityY < 0) { // hopper oppover
+          } else if (player.velocityY < 0) { // hopper opp
             player.y = enemy.y + enemy.height;
           }
           player.velocityY = 0;
@@ -243,7 +239,6 @@
       // --- Plattformkollisjon ---
       player.onGround = false;
       platforms.forEach(plat => {
-        // Bare sjekk om spilleren faller nedover
         if (player.velocityY >= 0) {
           if (
             player.x + player.width > plat.x &&
@@ -254,30 +249,25 @@
             player.y = plat.y - player.height;
             player.velocityY = 0;
             player.onGround = true;
-            // Hvis plattformen har kake, trigges neste nivå
             if (plat.type === "cake" && !toastMessage) {
               toastMessage = "du fant kaken - neste nivå!";
-              toastTimer = 120; // vises ca. 2 sekunder (ved 60 fps)
+              toastTimer = 120;
               setTimeout(nextLevel, 2000);
             }
           }
         }
       });
 
-      // Dersom spilleren faller ned i lavaen, restart nivået
+      // Hvis spilleren faller ned i lavaen, restart nivået
       if (player.y > canvas.height - LAVA_HEIGHT) {
         initLevel();
       }
 
-      // --- Oppdater fiender ---
+      // --- Fiendeoppdatering ---
       enemies.forEach(enemy => {
-        // Påfør tyngdekraft for fienden
         enemy.velocityY += GRAVITY;
-        // Oppdater fiendens posisjon separat for horisontal og vertikal bevegelse
-
-        // Horisontal bevegelse
         enemy.x += enemy.velocityX;
-        // Sørg for at fienden ikke forlater plattformens horisontale område
+        // Sørg for at fienden ikke forlater sin plattform horisontalt
         if (enemy.x < enemy.platform.x) {
           enemy.x = enemy.platform.x;
           enemy.velocityX *= -1;
@@ -286,12 +276,11 @@
           enemy.x = enemy.platform.x + enemy.platform.width - enemy.width;
           enemy.velocityX *= -1;
         }
-        // Vertikal bevegelse: hvis fienden faller under plattformen, juster den
         if (enemy.y + enemy.height > enemy.platform.y) {
           enemy.y = enemy.platform.y - enemy.height;
           enemy.velocityY = 0;
         }
-        // Tilfeldig "hopp" – hvis fienden står på plattformen
+        // Tilfeldig hopp dersom fienden står på plattformen
         if (enemy.velocityY === 0 && Math.random() < 0.005) {
           enemy.velocityY = -JUMP_STRENGTH * (0.8 + Math.random() * 0.4);
         }
@@ -308,16 +297,13 @@
 
     // Tegn alt på canvas
     function draw() {
-      // Bakgrunn
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.fillStyle = "#222";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-
       // Tegn lavaen nederst
       ctx.fillStyle = "red";
       ctx.fillRect(0, canvas.height - LAVA_HEIGHT, canvas.width, LAVA_HEIGHT);
-
-      // Tegn plattformene – bruk "☁️" for normale og "🍰" for kakeplattformen
+      // Tegn plattformene (normal: sky-emoji, kakeplattform: 🍰)
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.font = "20px sans-serif";
@@ -325,26 +311,21 @@
         const emoji = (plat.type === "cake") ? "🍰" : "☁️";
         ctx.fillText(emoji, plat.x + plat.width / 2, plat.y + plat.height / 2);
       });
-
-      // Tegn spilleren – 🧍 for stående, 🏃 for løpende (avhengig av bevegelse)
+      // Tegn spilleren (🧍 står stille, 🏃 løper)
       ctx.font = "30px sans-serif";
-      ctx.textAlign = "center";
       let playerEmoji = (Math.abs(player.velocityX) > 0.5) ? "🏃" : "🧍";
       ctx.fillText(playerEmoji, player.x + player.width / 2, player.y + player.height / 2);
-
-      // Tegn fiendene
+      // Tegn fiender
       ctx.font = "30px sans-serif";
       enemies.forEach(enemy => {
         ctx.fillText(enemy.emoji, enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
       });
-
       // Vis nivåinformasjon
       ctx.font = "16px sans-serif";
       ctx.textAlign = "left";
       ctx.fillStyle = "#fff";
       ctx.fillText("Nivå: " + level, 10, 20);
-
-      // Vis toast-melding om aktuelt
+      // Toast-melding
       if (toastMessage) {
         ctx.font = "24px sans-serif";
         ctx.textAlign = "center";
