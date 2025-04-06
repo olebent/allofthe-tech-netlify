@@ -1,21 +1,19 @@
-const gameState = {
-	score: 0
+var config = {
+  type: Phaser.AUTO,
+  width: 800,    // your base width
+  height: 600,   // your base height
+  physics: {
+    default: "arcade",
+    arcade: {
+      gravity: { y: 0 },
+      debug: false
+    }
+  },
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH
+  },
+  scene: [StartScene, GameScene] // or your scenes list
 };
 
-const config = {
-	type: Phaser.AUTO,
-	width: 450,
-	height: 500,
-	backgroundColor: "b9eaff",
-	physics: {
-		default: 'arcade',
-		arcade: {
-			gravity: { y: 200 },
-			enableBody: true,
-		}
-	},
-	scene: [StartScene, GameScene]
-};
-
-const game = new Phaser.Game(config);
-
+var game = new Phaser.Game(config);
