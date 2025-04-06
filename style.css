@@ -7,84 +7,67 @@ body {
     background-color: #7236ff;
     display: flex;
     flex-direction: column;
+    align-items: center;
 }
 
-/* Beholder for knappene */
+/* Overordnet container */
+.container {
+    width: 100%;
+    max-width: 750px;
+    text-align: center;
+}
+
+/* Litt ekstra margin under overskriften */
+#boksen h1 {
+    margin-bottom: 20px;
+}
+
+/* Knapp-beholder som grid med 2 kolonner */
 .button-container {
-    margin-left: auto;
-    margin-right: auto;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
 }
 
-.button-container > a span,
-button {
-    display: inline-block;
+/* Ensartet styling for knapper og anchors */
+.button-container a.button,
+.button-container button.button,
+.footer a.button {
+    display: block;
     background-color: #4400ff;
     color: #ffffff;
     border-radius: 4px;
-    padding: 10px 40px;
-    margin: 15px 0px;
+    padding: 20px 40px;
     font-family: "Syne Mono", monospace;
-    font-size: 1.75rem;
+    font-size: 2rem;
     border: 5px solid #4400ff;
     text-align: center;
     text-decoration: none;
-    line-height: normal; /* Sikrer riktig linjehøyde */
 }
 
-.button-container > a {
-    margin: 20px;
-}
-
-.container2 {
-    width: 750px;
-    max-width: 75%;
-    text-align: center;
-    background-color: #ffffff;
-    border-radius: 5px;
-    box-shadow: 0 0 5px 1px;
-    padding: 20px;
-    margin: 20px;
-}
-
-/* Ny beholder for å plassere to elementer side om side */
-.row-container {
-    display: flex;
-    justify-content: space-between;  /* Symmetrisk plassering */
-    align-items: flex-start;
-    margin: 20px auto;
-    width: 100%;
-    max-width: 1000px;  /* Juster etter behov */
-    gap: 20px;  /* Liten space mellom elementene */
-}
-
-/* Overstyr .container2 for elementer inni .row-container slik at de tar omtrent halvparten av bredden */
-.row-container .container2 {
-    flex: 0 0 calc(50% - 10px); /* To elementer med jevnt mellomrom */
-    margin: 0; /* Margin flyttes til .row-container gap */
-}
-
-/* Footer-styling */
-.footer {
-    width: 750px;
-    max-width: 75%;
-    text-align: center;
-    background-color: #ffffff;
-    border-radius: 5px;
-    box-shadow: 0 0 5px 1px;
-    padding: 20px;
-    margin: 20px;
-}
-
-.button-container > a span:hover,
-button:hover {
+/* Hover-effekt */
+.button-container a.button:hover,
+.button-container button.button:hover,
+.footer a.button:hover {
     border: 5px solid black;
     cursor: pointer;
 }
 
-.button-container > a span:active,
-button:active {
+/* Active-effekt */
+.button-container a.button:active,
+.button-container button.button:active,
+.footer a.button:active {
     border: 5px solid #ffd300;
+}
+
+/* Footer-styling */
+.footer {
+    width: 100%;
+    max-width: 750px;
+    text-align: center;
+    background-color: #ffffff;
+    border-radius: 5px;
+    box-shadow: 0 0 5px 1px;
+    padding: 20px;
+    margin-top: 20px;
 }
