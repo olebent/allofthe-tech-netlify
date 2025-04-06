@@ -14,7 +14,7 @@
     canvas {
       display: block;
       margin: 0 auto;
-      background: #333;
+      /* Fjernet bakgrunnsfarge fra canvas slik at vi bruker den tegne-fargede bakgrunnen i koden */
     }
   </style>
 </head>
@@ -82,11 +82,8 @@
           idleTimer = 0;
         }
       } else {
-        if (x < canvas.width / 2) {
-          touchLeft = true;
-        } else {
-          touchRight = true;
-        }
+        if (x < canvas.width / 2) { touchLeft = true; }
+        else { touchRight = true; }
       }
     });
     canvas.addEventListener("pointerup", (e) => {
@@ -94,11 +91,8 @@
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
       if (y >= canvas.height / 3) {
-        if (x < canvas.width / 2) {
-          touchLeft = false;
-        } else {
-          touchRight = false;
-        }
+        if (x < canvas.width / 2) { touchLeft = false; }
+        else { touchRight = false; }
       }
     });
     
@@ -133,7 +127,7 @@
       let startX = 50;
       let lastX = startX;
       let lastY = canvas.height - LAVA_HEIGHT - 100; // Startplattformen
-      const platformWidth = 750; // Plattformene er 5 ganger bredere enn tidligere
+      const platformWidth = 750; // 5 ganger bredere enn tidligere
       const platformHeight = 20;
       plats.push({ x: lastX, y: lastY, width: platformWidth, height: platformHeight, type: "normal" });
       
@@ -142,24 +136,16 @@
         let newX = lastX + gapX;
         let newY;
         let choice = Math.random();
-        if (choice < 0.3) {
-          newY = lastY; // like høy
-        } else if (choice < 0.65) {
-          newY = lastY - (PLAYER_HEIGHT + Math.random() * 20); // oppover med minst 40px
-        } else {
-          newY = lastY + (PLAYER_HEIGHT + Math.random() * 20); // nedover med minst 40px
-        }
+        if (choice < 0.3) { newY = lastY; }
+        else if (choice < 0.65) { newY = lastY - (PLAYER_HEIGHT + Math.random() * 20); }
+        else { newY = lastY + (PLAYER_HEIGHT + Math.random() * 20); }
         newY = Math.max(50, Math.min(newY, canvas.height - LAVA_HEIGHT - 50));
-        // Sørg for at vertikal forskjell er minst PLAYER_HEIGHT (40px)
         if (Math.abs(newY - lastY) < PLAYER_HEIGHT) {
           newY = newY < lastY ? lastY - PLAYER_HEIGHT : lastY + PLAYER_HEIGHT;
           newY = Math.max(50, Math.min(newY, canvas.height - LAVA_HEIGHT - 50));
         }
         let type = "normal";
-        if (i === numPlatforms - 1) {
-          type = "cake";
-          newY = 150; // Kakeplattformen tvinges høyt oppe
-        }
+        if (i === numPlatforms - 1) { type = "cake"; newY = 150; }
         plats.push({ x: newX, y: newY, width: platformWidth, height: platformHeight, type });
         lastX = newX;
         lastY = newY;
@@ -168,12 +154,9 @@
       return plats;
     }
     
-    // Initier nivået (fjerner bakgrunnstegning)
+    // Initier nivået – fjerner bakgrunnstegningen
     function initLevel(resetToLevel1 = false) {
-      if (resetToLevel1) {
-        level = 1;
-        score = 0;
-      }
+      if (resetToLevel1) { level = 1; score = 0; }
       platforms = generateLevel(level);
       // Plasser spilleren på startplattformen
       const startPlat = platforms[0];
@@ -219,13 +202,32 @@
         currentPlayerEmoji = "🤸";
         toastMessage = "du fant kaken - neste nivå!";
         toastTimer = 120;
-        setTimeout(() => {
-          level++;
-          toastMessage = "";
-          initLevel();
-        }, 2000);
+        setTimeout(() => { level++; toastMessage = ""; initLevel(); }, 2000);
       } else {
         toastMessage = "Du klarte det! Nå, gå og spill Portal i stedet";
         currentPlayerEmoji = "🧑‍🎓";
         player.velocityX = 0;
-        player.velocityY =
+        player.velocityY = 0;
+      }
+    }
+    
+    // Håndter fiende-kollisjon: Lander spilleren på et dyr fra oven, vis "💥" og gi poeng.
+    function handleEnemyCollision(enemy) {
+      if (player.velocityY > 0 && (player.y + player.height - enemy.y < 20) && !enemy.exploding) {
+        enemy.exploding = true;
+        enemy.emoji = "💥";
+        if (airKillChain) { score += 50; }
+        else { score += 10; airKillChain = true; }
+        player.velocityY = -JUMP_STRENGTH * 0.6;
+        setTimeout(() => { enemies = enemies.filter(e => e !== enemy); }, 300);
+        return true;
+      }
+      return false;
+    }
+    
+    function update() {
+      const movingLeft = keys["ArrowLeft"] || touchLeft;
+      const movingRight = keys["ArrowRight"] || touchRight;
+      if (movingLeft) { player.velocityX = -PLAYER_SPEED; }
+      else if (movingRight) { player.velocityX = PLAYER_SPEED; }
+      else { player.velocityX =
