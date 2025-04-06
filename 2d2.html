@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2D Plattformspill – Oppdatert bakgrunn og nye emoji</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #222;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+<body>
+  <!-- 
+    Photo by <a href="https://unsplash.com/@tetiana_grypachevska?utm_content=creditCopyText&utm_medium=referral&utm_source=unsplash">Tetiana Grypachevska</a> 
+    on <a href="https://unsplash.com/photos/brown-and-black-mountain-under-white-clouds-80x3QULJDN4?utm_content=creditCopyText&utm_medium=referral&utm_source=unsplash">Unsplash</a>
+  -->
+  <canvas id="gameCanvas" width="500" height="844"></canvas>
+  <script>
+    // Last inn bakgrunnsbilde
+    const bgImage = new Image();
+    bgImage.src = "tetiana-grypachevska-80x3QULJDN4-unsplash.jpg"; // Legg filen i samme mappe som HTML-filen
+
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    // Globale variabler
+    let level = 1;
+    const maxLevel = 7;
+    let platforms = [];
+    let enemies = [];
+    let toastMessage = "";
+    let toastTimer = 0;
+    let levelWidth = canvas.width; // oppdateres når nivået genereres
+    let idleTimer = 0;
+    let currentPlayerEmoji = "🧍";
+
+    // Konstanter
+    const GRAVITY = 0.8;
+    const PLAYER_SPEED = 3;
+    const JUMP_STRENGTH = 15;
+    const LAVA_HEIGHT = 50;
+    const PLAYER_WIDTH = 30;
+    const PLAYER_HEIGHT = 40;
+
+    // Liste over fiende-emoji
+    const enemyEmojis = [
+      "🦘", "🦑", "🫎", "🦙", "🐙", "🐖", "🐄", "🐂", "🐨",
+      "🦌", "🦬", "🐗", "🦏", "🪿", "🦅", "🐒", "🦍", "🦆",
+      "🐀", "🐁"
+    ];
+
+    // Spilleren
+    const player = {
+      x: 0,
+      y: 0,
+      width: PLAYER_WIDTH,
+      height: PLAYER_HEIGHT,
+      velocityX: 0,
+      velocityY: 0,
+      onGround: false
+    };
+
+    // Kontrollvariabler
+    const keys = {};
+    let touchLeft = false, touchRight = false;
+
+    // Tastaturlytting
+    document.addEventListener("keydown", (e) => { keys[e.code] = true; });
+    document.addEventListener("keyup", (e) => { keys[e.code] = false; });
+
+    // Berøringskontroller
+    canvas.addEventListener("pointerdown", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      // Øverste tredjedel: hopp
+      if (y < canvas.height / 3) {
+        if (player.onGround) {
+          player.velocityY = -JUMP_STRENGTH;
+          player.onGround = false;
+          idleTimer = 0;
+        }
+      } else {
+        // Nederste to tredjedeler: venstre/høyre
+        if (x < canvas.width / 2) {
+          touchLeft = true;
+        } else {
+          touchRight = true;
+        }
+      }
+    });
+
+    canvas.addEventListener("pointerup", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      if (y >= canvas.height / 3) {
+        if (x < canvas.width / 2) {
+          touchLeft = false;
+        } else {
+          touchRight = false;
+        }
+      }
+    });
+
+    // Enkel rektangulær kollisjonsdeteksjon
+    function checkCollision(a, b) {
+      return a.x < b.x + b.width &&
+             a.x + a.width > b.x &&
+             a.y < b.y + b.height &&
+             a.y + a.height > b.y;
+    }
+
+    // Tegn avrundede rektangler (for plattformer)
+    function drawRoundedRect(ctx, x, y, width, height, radius) {
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.lineTo(x + width - radius, y);
+      ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+      ctx.lineTo(x + width, y + height - radius);
+      ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+      ctx.lineTo(x + radius, y + height);
+      ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+      ctx.lineTo(x, y + radius);
+      ctx.quadraticCurveTo(x, y, x + radius, y);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Generer nivå: stor horisontal bredde, begrensede vertikale hopp
+    // og tving siste plattform (kaken) høyt, men fortsatt hoppbart.
+    function generateLevel(level) {
+      const numPlatforms = 6 + (level - 1) * 2;
+      const plats = [];
+      let startX = 50;
+      let lastX = startX;
+      let lastY = canvas.height - LAVA_HEIGHT - 100; // Startplattform
+      const platformWidth = 750; // 5x bredde
+      const platformHeight = 20;
+      plats.push({ x: lastX, y: lastY, width: platformWidth, height: platformHeight, type: "normal" });
+
+      for (let i = 1; i < numPlatforms; i++) {
+        let gapX = 50 + Math.random() * 100; // 50-150 px mellom plattformer
+        let newX = lastX + gapX;
+        // Begrens vertikal endring til -30 til +30 px
+        let gapY = -30 + Math.random() * 60;
+        let newY = lastY + gapY;
+        // Klemme høyden til spillbart område
+        newY = Math.max(100, Math.min(newY, canvas.height - LAVA_HEIGHT - 50));
+
+        // Siste plattform (kake) tvinges litt høyere (f.eks. 150 px fra topp)
+        let type = "normal";
+        if (i === numPlatforms - 1) {
+          type = "cake";
+          newY = 150; 
+        }
+        plats.push({ x: newX, y: newY, width: platformWidth, height: platformHeight, type });
+        lastX = newX;
+        lastY = newY;
+      }
+      // Regn ut total nivåbredde
+      levelWidth = plats[plats.length - 1].x + platformWidth + 50;
+      return plats;
+    }
+
+    function initLevel(resetToLevel1 = false) {
+      // Hvis spilleren dør, eller vi spesifikt vil til nivå 1
+      if (resetToLevel1) {
+        level = 1;
+      }
+      platforms = generateLevel(level);
+      // Startplattform
+      const startPlat = platforms[0];
+      player.x = startPlat.x + (startPlat.width - player.width) / 2;
+      player.y = startPlat.y - player.height;
+      player.velocityX = 0;
+      player.velocityY = 0;
+      player.onGround = true;
+      idleTimer = 0;
+      currentPlayerEmoji = "🧍";
+
+      // Generer fiender på noen plattformer (unntatt start og cake)
+      enemies = [];
+      for (let i = 1; i < platforms.length - 1; i++) {
+        if (Math.random() < 0.7) {
+          const plat = platforms[i];
+          const enemyWidth = 30, enemyHeight = 30;
+          const ex = plat.x + Math.random() * (plat.width - enemyWidth);
+          const ey = plat.y - enemyHeight;
+          const velocityX = (Math.random() < 0.5 ? -1 : 1) * (1 + Math.random());
+          enemies.push({
+            x: ex,
+            y: ey,
+            width: enemyWidth,
+            height: enemyHeight,
+            velocityX: velocityX,
+            velocityY: 0,
+            platform: plat,
+            emoji: enemyEmojis[Math.floor(Math.random() * enemyEmojis.length)]
+          });
+        }
+      }
+    }
+
+    initLevel();
+
+    // Neste nivå: bruk 🤸 for fullføring, 🧑‍🎓 for siste nivå
+    function nextLevel() {
+      if (level < maxLevel) {
+        currentPlayerEmoji = "🤸";
+        toastMessage = "du fant kaken - neste nivå!";
+        toastTimer = 120;
+        setTimeout(() => {
+          level++;
+          toastMessage = "";
+          initLevel();
+        }, 2000);
+      } else {
+        toastMessage = "Du klarte det! Nå, gå og spill Portal i stedet";
+        currentPlayerEmoji = "🧑‍🎓";
+        player.velocityX = 0;
+        player.velocityY = 0;
+      }
+    }
+
+    function update() {
+      // Spillerkontroll
+      const movingLeft = keys["ArrowLeft"] || touchLeft;
+      const movingRight = keys["ArrowRight"] || touchRight;
+      // Horisontal bevegelse
+      if (movingLeft) {
+        player.velocityX = -PLAYER_SPEED;
+      } else if (movingRight) {
+        player.velocityX = PLAYER_SPEED;
+      } else {
+        player.velocityX = 0;
+      }
+      // Hopp
+      if ((keys["ArrowUp"] || keys["Space"]) && player.onGround) {
+        player.velocityY = -JUMP_STRENGTH;
+        player.onGround = false;
+        idleTimer = 0;
+      }
+      // Tyngdekraft kun hvis ikke på plattform
+      if (!player.onGround) {
+        player.velocityY += GRAVITY;
+      }
+
+      // Oppdater posisjon
+      player.x += player.velocityX;
+      player.y += player.velocityY;
+
+      // Kollisjon med fiender
+      enemies.forEach(enemy => {
+        if (checkCollision(player, enemy)) {
+          // Horisontal
+          if (player.velocityX > 0) {
+            player.x = enemy.x - player.width;
+          } else if (player.velocityX < 0) {
+            player.x = enemy.x + enemy.width;
+          }
+          player.velocityX = 0;
+        }
+      });
+      enemies.forEach(enemy => {
+        if (checkCollision(player, enemy)) {
+          // Vertikal
+          if (player.velocityY > 0) {
+            player.y = enemy.y - player.height;
+            player.onGround = true;
+          } else if (player.velocityY < 0) {
+            player.y = enemy.y + enemy.height;
+          }
+          player.velocityY = 0;
+        }
+      });
+
+      // Plattformkollisjon
+      let onAnyPlatform = false;
+      platforms.forEach(plat => {
+        if (player.velocityY >= 0) {
+          // Margin for å hindre "synking"
+          const margin = 20;
+          if (
+            player.x + player.width > plat.x &&
+            player.x < plat.x + plat.width &&
+            player.y + player.height >= plat.y &&
+            (player.y + player.height - Math.abs(player.velocityY)) < plat.y + margin
+          ) {
+            player.y = plat.y - player.height;
+            player.velocityY = 0;
+            onAnyPlatform = true;
+            if (plat.type === "cake" && !toastMessage) {
+              nextLevel();
+            }
+          }
+        }
+      });
+      player.onGround = onAnyPlatform;
+
+      // Hvis spilleren faller ned i lavaen, restart til nivå 1
+      if (player.y > canvas.height - LAVA_HEIGHT) {
+        initLevel(true);
+      }
+
+      // Oppdater fiender
+      enemies.forEach(enemy => {
+        enemy.velocityY += GRAVITY;
+        enemy.x += enemy.velocityX;
+        // Hindre fienden fra å gå av plattformen
+        if (enemy.x < enemy.platform.x) {
+          enemy.x = enemy.platform.x;
+          enemy.velocityX *= -1;
+        }
+        if (enemy.x + enemy.width > enemy.platform.x + enemy.platform.width) {
+          enemy.x = enemy.platform.x + enemy.platform.width - enemy.width;
+          enemy.velocityX *= -1;
+        }
+        // Stopp fienden på toppen av plattformen
+        if (enemy.y + enemy.height > enemy.platform.y) {
+          enemy.y = enemy.platform.y - enemy.height;
+          enemy.velocityY = 0;
+        }
+        // Av og til hopper fienden
+        if (enemy.velocityY === 0 && Math.random() < 0.005) {
+          enemy.velocityY = -JUMP_STRENGTH * (0.8 + Math.random() * 0.4);
+        }
+      });
+
+      // Oppdater idle-tid
+      if (Math.abs(player.velocityX) < 0.1 && player.onGround) {
+        idleTimer++;
+      } else {
+        idleTimer = 0;
+      }
+
+      // Bestem spiller-emoji (hvis vi ikke viser "toastMessage" for nivå)
+      if (!toastMessage) {
+        if (player.velocityX > 0) {
+          currentPlayerEmoji = "🏃‍➡️"; // løper til høyre
+        } else if (player.velocityX < 0) {
+          currentPlayerEmoji = "🏃";   // løper til venstre
+        } else if (idleTimer >= 60) {
+          currentPlayerEmoji = "🧎‍➡️";
+        } else {
+          currentPlayerEmoji = "🧍";
+        }
+      }
+    }
+
+    function draw() {
+      // Kamera: Sentrer spilleren horisontalt
+      let cameraX = player.x - canvas.width / 2;
+      if (cameraX < 0) cameraX = 0;
+      if (cameraX > levelWidth - canvas.width) {
+        cameraX = levelWidth - canvas.width;
+      }
+
+      // Tegn bakgrunnsbilde
+      // (Hvis bildet ikke er ferdig lastet, tegner vi en grå bakgrunn)
+      if (bgImage.complete && bgImage.naturalWidth > 0) {
+        ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
+      } else {
+        ctx.fillStyle = "#222";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+
+      // Tegn lava (i verdenskoordinater)
+      ctx.fillStyle = "red";
+      ctx.fillRect(cameraX, canvas.height - LAVA_HEIGHT, canvas.width, LAVA_HEIGHT);
+
+      // Tegn plattformer (avrundede hvite bokser)
+      ctx.fillStyle = "white";
+      platforms.forEach(plat => {
+        let drawX = plat.x - cameraX;
+        drawRoundedRect(ctx, drawX, plat.y, plat.width, plat.height, 10);
+        // Tegn kake-emoji på "cake"-plattformer
+        if (plat.type === "cake") {
+          ctx.font = "20px sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillStyle = "black";
+          ctx.fillText("🍰", drawX + plat.width / 2, plat.y + plat.height / 2);
+          // Sett farge tilbake til hvit for neste plattform
+          ctx.fillStyle = "white";
+        }
+      });
+
+      // Tegn fiender
+      ctx.font = "30px sans-serif";
+      enemies.forEach(enemy => {
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(enemy.emoji, enemy.x - cameraX + enemy.width/2, enemy.y + enemy.height/2);
+      });
+
+      // Tegn spilleren med aktuell emoji
+      ctx.font = "30px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(currentPlayerEmoji, player.x - cameraX + player.width/2, player.y + player.height/2);
+
+      // HUD – nivåinfo
+      ctx.font = "16px sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillStyle = "#fff";
+      ctx.fillText("Nivå: " + level, cameraX + 10, 20);
+
+      // Toast-melding (nivåfullføring)
+      if (toastMessage) {
+        ctx.font = "24px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillStyle = "yellow";
+        ctx.fillText(toastMessage, cameraX + canvas.width/2, canvas.height/2);
+      }
+    }
+
+    function gameLoop() {
+      update();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+    gameLoop();
+  </script>
+</body>
+</html>
