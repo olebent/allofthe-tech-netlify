@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>2D Plattformspill – Solid Skyløsning</title>
+  <title>2D Plattformspill – Forbedret Kollisjon og Reset</title>
   <style>
     body {
       margin: 0;
@@ -19,21 +19,21 @@
   </style>
 </head>
 <body>
-  <!-- Canvas satt til 500x844 (f.eks. iPhone 14-portrett) -->
+  <!-- Canvas satt til 500x844 (f.eks. for iPhone 14-portrett) -->
   <canvas id="gameCanvas" width="500" height="844"></canvas>
   <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
 
-    // Globale variabler og nivådata
+    // Globale variabler
     let level = 1;
     const maxLevel = 7;
     let platforms = [];
     let enemies = [];
     let toastMessage = "";
     let toastTimer = 0;
-    let levelWidth = canvas.width; // Beregnes når nivået genereres
-    let idleTimer = 0; // Teller frames for stillestående
+    let levelWidth = canvas.width; // oppdateres når nivået genereres
+    let idleTimer = 0;
     let currentPlayerEmoji = "🧍";
 
     // Konstanter
@@ -109,7 +109,7 @@
              a.y + a.height > b.y;
     }
 
-    // Funksjon for å tegne avrundede rektangler
+    // Funksjon for å tegne avrundede rektangler (plattformer)
     function drawRoundedRect(ctx, x, y, width, height, radius) {
       ctx.beginPath();
       ctx.moveTo(x + radius, y);
@@ -125,36 +125,39 @@
       ctx.fill();
     }
 
-    // Generer nivå med horisontal progresjon.
-    // Plattformene blir 5 ganger bredere enn før (tidligere ca 150, nå 750).
+    // Oppdatert nivågenerering: Vi bygger nivået sekvensielt for å begrense vertikale gap.
     function generateLevel(level) {
-      const numPlatforms = 6 + (level - 1) * 2; // f.eks. 6 på nivå 1
+      const numPlatforms = 6 + (level - 1) * 2;
       const plats = [];
-      let startX = 50; // Startplattformen begynner her
-      let currentX = startX;
-      const platformWidth = 750; // 5 ganger bredere enn før
-      for (let i = 0; i < numPlatforms; i++) {
-        // Sett et gap mellom 100 og 200 piksler mellom plattformene
-        let gap = (i === 0 ? 0 : 100 + Math.random() * 100);
-        currentX += gap;
-        let platformX = currentX;
-        let platformY;
-        if (i === 0) {
-          // Startplattformen plasseres fast 100 piksler over lavaen
-          platformY = canvas.height - LAVA_HEIGHT - 100;
-        } else {
-          // Varier Y slik at plattformene ligger et sted mellom 150 og (canvas høyde - lava - 150)
-          platformY = 150 + Math.random() * (canvas.height - LAVA_HEIGHT - 250);
-        }
-        const type = (i === numPlatforms - 1) ? "cake" : "normal";
-        plats.push({ x: platformX, y: platformY, width: platformWidth, height: 20, type: type });
+      let startX = 50;
+      let lastX = startX;
+      let lastY = canvas.height - LAVA_HEIGHT - 100; // Startplattformen
+      const platformWidth = 750; // Plattformene er 5 ganger bredere enn før
+      plats.push({ x: lastX, y: lastY, width: platformWidth, height: 20, type: "normal" });
+      
+      // For de neste plattformene, bruk mindre horisontale og vertikale gap.
+      for (let i = 1; i < numPlatforms; i++) {
+        let gapX = 50 + Math.random() * 100; // gap mellom 50 og 150 piksler horisontalt
+        let newX = lastX + gapX;
+        // Vertikalt: begrens forskjellen til mellom -30 og +30 piksler
+        let gapY = -30 + Math.random() * 60;
+        let newY = lastY + gapY;
+        // Klamp newY slik at den holder seg innenfor et spillbart område
+        newY = Math.max(150, Math.min(newY, canvas.height - LAVA_HEIGHT - 50));
+        let type = (i === numPlatforms - 1) ? "cake" : "normal";
+        plats.push({ x: newX, y: newY, width: platformWidth, height: 20, type: type });
+        lastX = newX;
+        lastY = newY;
       }
-      // Nivåets totale bredde
       levelWidth = plats[plats.length - 1].x + platformWidth + 50;
       return plats;
     }
 
     function initLevel() {
+      // Hvis spilleren dør (faller ned), reset nivå til 1.
+      if (player.y > canvas.height - LAVA_HEIGHT) {
+        level = 1;
+      }
       platforms = generateLevel(level);
       // Plasser spilleren på startplattformen
       const startPlat = platforms[0];
@@ -166,7 +169,7 @@
       idleTimer = 0;
       currentPlayerEmoji = "🧍";
 
-      // Generer fiender på noen av plattformene (unntatt start og kake)
+      // Generer fiender på noen plattformer (unntatt start og cake)
       enemies = [];
       for (let i = 1; i < platforms.length - 1; i++) {
         if (Math.random() < 0.7) {
@@ -191,7 +194,7 @@
 
     initLevel();
 
-    // Gå til neste nivå – bytt emoji til 🤸 når nivået fullføres, og til slutt 🧑‍🎓
+    // Neste nivå: bytt til 🤸 ved nivåfullføring, og til slutt til 🧑‍🎓
     function nextLevel() {
       if (level < maxLevel) {
         currentPlayerEmoji = "🤸";
@@ -211,7 +214,7 @@
     }
 
     function update() {
-      // Spillerkontroll: Tastatur eller berøring
+      // Spillkontroll: Tastatur eller berøring
       const movingLeft = keys["ArrowLeft"] || touchLeft;
       const movingRight = keys["ArrowRight"] || touchRight;
       if (movingLeft) {
@@ -226,16 +229,15 @@
         player.onGround = false;
         idleTimer = 0;
       }
-      // Kun legg til tyngdekraft hvis spilleren ikke står på en plattform
       if (!player.onGround) {
         player.velocityY += GRAVITY;
       }
-
+      
       // Oppdater posisjon
       player.x += player.velocityX;
       player.y += player.velocityY;
 
-      // Kollisjon horisontalt med fiender
+      // Kollisjon med fiender (horisontalt og vertikalt)
       enemies.forEach(enemy => {
         if (checkCollision(player, enemy)) {
           if (player.velocityX > 0) {
@@ -246,7 +248,6 @@
           player.velocityX = 0;
         }
       });
-      // Kollisjon vertikalt med fiender
       enemies.forEach(enemy => {
         if (checkCollision(player, enemy)) {
           if (player.velocityY > 0) {
@@ -259,15 +260,16 @@
         }
       });
 
-      // Plattformkollisjon – sjekk alle plattformer og sett onGround dersom spilleren står på en
+      // Plattformkollisjon – vi bruker en margin for å hindre at spilleren synker gjennom.
       let onAnyPlatform = false;
       platforms.forEach(plat => {
         if (player.velocityY >= 0) {
+          const margin = 20; // margin for kollisjon
           if (
             player.x + player.width > plat.x &&
             player.x < plat.x + plat.width &&
             player.y + player.height >= plat.y &&
-            player.y + player.height - player.velocityY < plat.y
+            (player.y + player.height - Math.abs(player.velocityY)) < plat.y + margin
           ) {
             player.y = plat.y - player.height;
             player.velocityY = 0;
@@ -280,8 +282,9 @@
       });
       player.onGround = onAnyPlatform;
 
-      // Hvis spilleren går av alle plattformer, vil onGround bli false og gravity virker
+      // Hvis spilleren faller under lavaen, reset til nivå 1
       if (player.y > canvas.height - LAVA_HEIGHT) {
+        level = 1;
         initLevel();
       }
 
@@ -306,7 +309,7 @@
         }
       });
 
-      // Oppdater idle-teller (hvis spilleren står stille på en plattform)
+      // Oppdater idle-teller
       if (Math.abs(player.velocityX) < 0.1 && player.onGround) {
         idleTimer++;
       } else {
@@ -315,7 +318,7 @@
       if (!toastMessage) {
         if (player.velocityX > 0) {
           currentPlayerEmoji = "🏃➡️";
-        } else if (idleTimer >= 60) { // 1 sekund (60 frames)
+        } else if (idleTimer >= 60) {
           currentPlayerEmoji = "🧎‍➡️";
         } else {
           currentPlayerEmoji = "🧍";
@@ -324,7 +327,7 @@
     }
 
     function draw() {
-      // Kamera: sentrer spilleren horisontalt
+      // Kamera: Sentrer spilleren horisontalt
       let cameraX = player.x - canvas.width / 2;
       if (cameraX < 0) cameraX = 0;
       if (cameraX > levelWidth - canvas.width) cameraX = levelWidth - canvas.width;
@@ -333,7 +336,7 @@
       ctx.fillStyle = "#222";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Tegn lavaen (i verdenskoordinater)
+      // Tegn lava (i verdenskoordinater)
       ctx.fillStyle = "red";
       ctx.fillRect(cameraX, canvas.height - LAVA_HEIGHT, canvas.width, LAVA_HEIGHT);
 
@@ -341,18 +344,14 @@
       platforms.forEach(plat => {
         let drawX = plat.x - cameraX;
         let drawY = plat.y;
-        // For cake-plattformen kan vi eventuelt tegne kake-emoji oppå
+        ctx.fillStyle = "white";
+        drawRoundedRect(ctx, drawX, drawY, plat.width, plat.height, 10);
         if (plat.type === "cake") {
-          ctx.fillStyle = "white";
-          drawRoundedRect(ctx, drawX, drawY, plat.width, plat.height, 10);
           ctx.font = "20px sans-serif";
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
           ctx.fillStyle = "black";
           ctx.fillText("🍰", drawX + plat.width / 2, drawY + plat.height / 2);
-        } else {
-          ctx.fillStyle = "white";
-          drawRoundedRect(ctx, drawX, drawY, plat.width, plat.height, 10);
         }
       });
 
