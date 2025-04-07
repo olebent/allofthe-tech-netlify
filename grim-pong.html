@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <title>Grimsmyra-pong</title>
+  <style>
+    body {
+      margin: 0;
+      background: black;
+      color: white;
+      font-family: sans-serif;
+      overflow: hidden;
+    }
+    #gameCanvas {
+      display: block;
+      margin: 0 auto;
+      background: #000;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
+  <script>
+    // Globale variabler og initialisering
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    let gameState = "toast"; // Mulige verdier: "toast", "playing"
+    let toast = null; // Objekt for toast-meldinger
+
+    let score = 0;
+    let level = 1;
+    const maxLevel = 10;
+
+    // Farger for murstein basert på helse
+    const colorHealth3 = "#228B22"; // Grønn (gress)
+    const colorHealth2 = "#8B4513"; // Brun (jord)
+    const colorHealth1 = "#808080"; // Grå
+
+    // Paddle-objektet – styrt med musen
+    const paddle = {
+      width: 100,
+      height: 15,
+      x: canvas.width / 2 - 50,
+      y: canvas.height - 40,
+      update: function(mouseX) {
+        this.x = mouseX - this.width / 2;
+        if (this.x < 0) this.x = 0;
+        if (this.x + this.width > canvas.width) this.x = canvas.width - this.width;
+      },
+      draw: function() {
+        ctx.fillStyle = "white";
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+      }
+    };
+
+    // Ball-objektet – vises som en fotball-emoji
+    const ball = {
+      radius: 15,
+      x: canvas.width / 2,
+      y: canvas.height / 2,
+      vx: 4,
+      vy: -4,
+      draw: function() {
+        ctx.font = "30px 'Segoe UI Emoji', sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("⚽", this.x, this.y);
+      },
+      update: function() {
+        this.x += this.vx;
+        this.y += this.vy;
+        // Kollisjon med venstre og høyre vegg
+        if (this.x - this.radius < 0 || this.x + this.radius > canvas.width) {
+          this.vx = -this.vx;
+        }
+        // Kollisjon med toppen
+        if (this.y - this.radius < 0) {
+          this.vy = -this.vy;
+        }
+      },
+      reset: function() {
+        this.x = canvas.width / 2;
+        this.y = canvas.height / 2;
+      }
+    };
+
+    // Funksjon for å lage murstein for et gitt nivå
+    function createBricks(currentLevel) {
+      let bricks = [];
+      // Nivå 1: 3 rader, nivå 2: 4 rader, osv.
+      let rows = 3 + (currentLevel - 1);
+      let cols = 7;
+      let brickWidth = canvas.width / cols;
+      let brickHeight = 20;
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          let brick = {
+            x: col * brickWidth + 5,
+            y: row * (brickHeight + 5) + 50,
+            width: brickWidth - 10,
+            height: brickHeight,
+            health: 3
+          };
+          bricks.push(brick);
+        }
+      }
+      return bricks;
+    }
+    let bricks = createBricks(level);
+
+    // Musbevegelse for å oppdatere padlen
+    canvas.addEventListener("mousemove", function(e) {
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      paddle.update(mouseX);
+    });
+
+    // Funksjon for å vise toast-meldinger
+    function showToast(message, duration, nextState, callback) {
+      toast = {
+        message: message,
+        duration: duration,
+        startTime: Date.now(),
+        nextState: nextState,
+        callback: callback
+      };
+      gameState = "toast";
+    }
+
+    // Starttoast
+    showToast("Grimsmyra-pong!", 3000, "playing", null);
+
+    // Tegn alle spill-elementene
+    function drawGame() {
+      // Bakgrunn
+      ctx.fillStyle = "black";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // Score og nivå
+      ctx.fillStyle = "white";
+      ctx.font = "20px sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText("Score: " + score + "   Nivå: " + level, 10, 30);
+      // Tegn mursteinene
+      bricks.forEach(function(brick) {
+        if (brick.health === 3) ctx.fillStyle = colorHealth3;
+        else if (brick.health === 2) ctx.fillStyle = colorHealth2;
+        else if (brick.health === 1) ctx.fillStyle = colorHealth1;
+        ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
+      });
+      // Tegn padlen og ballen
+      paddle.draw();
+      ball.draw();
+    }
+
+    // Sjekk kollisjoner mellom ball og padle/mursteinene
+    function checkCollisions() {
+      // Kollisjon med padlen
+      if (ball.y + ball.radius > paddle.y &&
+          ball.x > paddle.x &&
+          ball.x < paddle.x + paddle.width &&
+          ball.y - ball.radius < paddle.y + paddle.height) {
+        ball.vy = -Math.abs(ball.vy);
+        ball.y = paddle.y - ball.radius;
+      }
+      // Kollisjon med mursteinene
+      for (let i = 0; i < bricks.length; i++) {
+        let brick = bricks[i];
+        if (ball.x + ball.radius > brick.x &&
+            ball.x - ball.radius < brick.x + brick.width &&
+            ball.y + ball.radius > brick.y &&
+            ball.y - ball.radius < brick.y + brick.height) {
+          ball.vy = -ball.vy;
+          brick.health--;
+          if (brick.health <= 0) {
+            bricks.splice(i, 1);
+            score++;
+          }
+          break; // Kun én kollisjon per oppdatering
+        }
+      }
+    }
+
+    // Sjekk status for spill (nivå-fullføring, game over)
+    function checkGameStatus() {
+      // Dersom ballen faller under canvas, vis "Game Over"
+      if (ball.y - ball.radius > canvas.height) {
+        showToast("Game Over!", 3000, "playing", function() {
+          // Tilbakestill spillvariabler
+          score = 0;
+          level = 1;
+          bricks = createBricks(level);
+          ball.vx = 4;
+          ball.vy = -4;
+          ball.reset();
+        });
+      }
+      // Dersom alle mursteinene er borte, gå til neste nivå
+      if (bricks.length === 0) {
+        if (level < maxLevel) {
+          level++;
+          // Øk ballens fart med 10%
+          ball.vx *= 1.1;
+          ball.vy *= 1.1;
+          bricks = createBricks(level);
+          showToast("Er du klar for nivå " + level + "? Hvis ikke blir det slåsskamp bak bakeriet klokka 2!", 3000, "playing", function() {
+            ball.reset();
+          });
+        } else {
+          // Spillet er vunnet
+          showToast("Gratulerer, du vant!", 3000, "game_over", null);
+        }
+      }
+    }
+
+    // Spill-løkken – kjører med requestAnimationFrame
+    function gameLoop() {
+      if (gameState === "playing") {
+        ball.update();
+        checkCollisions();
+        checkGameStatus();
+        drawGame();
+      } else if (gameState === "toast") {
+        // Tegn spillbakgrunn og vis toast-melding
+        drawGame();
+        ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "white";
+        ctx.font = "24px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(toast.message, canvas.width / 2, canvas.height / 2);
+        if (Date.now() - toast.startTime > toast.duration) {
+          gameState = toast.nextState;
+          if (toast.callback) toast.callback();
+          toast = null;
+        }
+      }
+      requestAnimationFrame(gameLoop);
+    }
+    gameLoop();
+  </script>
+</body>
+</html>
