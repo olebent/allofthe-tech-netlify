@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <title>Grimsmyra-pong</title>
+  <style>
+    body {
+      margin: 0;
+      background: black;
+      color: white;
+      font-family: sans-serif;
+      overflow: hidden;
+    }
+    #gameCanvas {
+      display: block;
+      margin: 0 auto;
+      background: black;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
+  <script>
+    // Initialisering og globale variabler
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    let gameState = "toast"; // Mulige verdier: "toast", "playing"
+    let toast = null; // Inneholder melding, varighet o.l.
+
+    let score = 0;
+    let level = 1;
+    const maxLevel = 10;
+    
+    // Start-tid for økt farts-oppgradering hvert 30. sekund
+    let lastSpeedIncreaseTime = Date.now();
+
+    // Farger for murstein (bricks)
+    const colorHealth3 = "#228B22"; // Grønn (gress)
+    const colorHealth2 = "#8B4513"; // Brun (jord)
+    const colorHealth1 = "#808080"; // Grå
+
+    // Paddle-objektet – styrt med musen
+    const paddle = {
+      width: 100,
+      height: 15,
+      x: canvas.width / 2 - 50,
+      y: canvas.height - 40,
+      update: function(mouseX) {
+        this.x = mouseX - this.width / 2;
+        if (this.x < 0) this.x = 0;
+        if (this.x + this.width > canvas.width) this.x = canvas.width - this.width;
+      },
+      // Tegn paddlen med en konveks kurve øverst
+      draw: function() {
+        ctx.fillStyle = "white";
+        ctx.beginPath();
+        // Start nederst til venstre
+        ctx.moveTo(this.x, this.y + this.height);
+        // Gå opp til midten på venstre side
+        ctx.lineTo(this.x, this.y + this.height/2);
+        // Tegn en kvadratisk kurve med kontrollpunkt over midten
+        ctx.quadraticCurveTo(this.x + this.width/2, this.y - 10, this.x + this.width, this.y + this.height/2);
+        // Gå ned til nederst til høyre
+        ctx.lineTo(this.x + this.width, this.y + this.height);
+        ctx.closePath();
+        ctx.fill();
+      }
+    };
+
+    // Ball-objektet – vises som fotball-emoji med spin
+    const ball = {
+      radius: 15,
+      x: canvas.width / 2,
+      y: canvas.height / 2,
+      vx
