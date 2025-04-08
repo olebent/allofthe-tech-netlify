@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <title>Emoji Plattformspill – Hard Mode</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      /* Standard bakgrunn, vil endres dynamisk */
+      background: #87CEEB;
+    }
+    canvas {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <script>
+    // Hent canvas og kontekst
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    // Definer bakgrunnsfarger for de ulike nivåene
+    const backgrounds = [
+      "#87CEEB", // Nivå 1
+      "#FFD700", // Nivå 2
+      "#8A2BE2", // Nivå 3
+      "#FF69B4", // Nivå 4
+      "#7FFFD4", // Nivå 5
+      "#00FA9A", // Nivå 6
+      "#FF4500", // Nivå 7
+      "#DA70D6", // Nivå 8
+      "#40E0D0", // Nivå 9
+      "#FFDEAD"  // Nivå 10
+    ];
+
+    // Globale variabler
+    let score = 0;
+    let currentLevelIndex = 0;
+    let levels = [];
+    let player = {};
+    let keys = { left: false, right: false, up: false };
+
+    const gravity = 0.5;
+    const jumpVelocity = -12;
+    const moveSpeed = 5;
+    // Tillatt nedstigning dersom droppet er mindre enn denne terskelen – hvis du ikke har hoppet, blir overgangen for bratt.
+    const dropThreshold = 20;
+    // Reduserer plattform-kollisjonsboksen med noen piksler
+    const hitMargin = 5;
+
+    let lastMoveTime = Date.now();
+    // Når nivået er fullført settes denne slik at spilleren vises med 🤸 i 300 ms
+    let levelCompleteTime = null;
+
+    // Dyr som kan dukke opp (utenom bjørnen)
+    const animalTypes = ["🦘", "🦑", "🫎", "🦙", "🐙", "🐖", "🐄", "🐂", "🐨"];
+
+    // Oppretter nivåer med plattformer, creatures (bjørn og andre dyr) og finish-område
+    function createLevels() {
+      let lvls = [];
+      // Nivå 1: Én stor plattform og én creature (bjørn)
+      {
+        let platforms = [
+          { x: 0, y: canvas.height - 50, width: canvas.width, height: 50 }
+        ];
+        let creatures = [];
+        // Plasser bjørnen midt på plattformen – bruker redusert fart (ganget med 0.5)
+        creatures.push({
+          x: canvas.width / 2,
+          y: canvas.height - 90,
+          width: 40,
+          height: 40,
+          alive: true,
+          explosionTime: 0,
+          vx: (Math.random() < 0.5 ? -1 : 1) * ((Math.random() * 2 + 1) * 0.5),
+          vy: 0,
+          type: "🐻",
+          platformX: 0,
+          platformRight: canvas.width,
+          platformY: canvas.height - 50,
+          jumpCooldown: 0
+        });
+        lvls.push({
+          platforms: platforms,
+          creatures: creatures,
+          finish: { x: canvas.width - 100, y: canvas.height - 100, width: 50, height: 50 }
+        });
+      }
+      // Nivå 2 til 10 med flere plattformer og creatures
+      for (let i = 2; i <= 10; i++) {
+        let platforms = [];
+        let creatures = [];
+        const platformCount = 5 + i; // Flere plattformer for høyere nivåer
+        const platformWidth = canvas.width / platformCount;
+        for (let j = 0; j < platformCount; j++) {
+          let x = j * platformWidth;
+          let y = canvas.height - 50 - (Math.random() * 100 + i * 10);
+          platforms.push({ x: x, y: y, width: platformWidth - 20, height: 20 });
+          // 40% sjanse for å legge til en bjørn (🐻) med redusert fart
+          if (Math.random() < 0.4) {
+            creatures.push({
+              x: x + (platformWidth - 20) / 2 - 20,
+              y: y - 40,
+              width: 40,
+              height: 40,
+              alive: true,
+              explosionTime: 0,
+              vx: (Math.random() < 0.5 ? -1 : 1) * ((Math.random() * 2 + 1) * 0.5),
+              vy: 0,
+              type: "🐻",
+              platformX: x,
+              platformRight: x + platformWidth - 20,
+              platformY: y,
+              jumpCooldown: 0
+            });
+          }
+          // 15% sjanse for å legge til et annet dyr (tilfeldig valgt) med redusert fart
+          if (Math.random() < 0.15) {
+            let type = animalTypes[Math.floor(Math.random() * animalTypes.length)];
+            creatures.push({
+              x: x + Math.random() * ((platformWidth - 20) - 40),
+              y: y - 40,
+              width: 40,
+              height: 40,
+              alive: true,
+              explosionTime: 0,
+              vx: (Math.random() < 0.5 ? -1 : 1) * ((Math.random() * 2 + 1) * 0.5),
+              vy: 0,
+              type: type,
+              platformX: x,
+              platformRight: x + platformWidth - 20,
+              platformY: y,
+              jumpCooldown: 0
+            });
+          }
+        }
+        // Legg til en siste plattform nær finish-området
+        platforms.push({ x: canvas.width - 150, y: canvas.height - 150, width: 150, height: 20 });
+        lvls.push({
+          platforms: platforms,
+          creatures: creatures,
+          finish: { x: canvas.width - 100, y: canvas.height - 200, width: 50, height: 50 }
+        });
+      }
+      return lvls;
+    }
+    levels = createLevels();
+
+    // Spilleren plasseres alltid oppå den første plattformen i nivået.
+    // Vi lagrer også hvilken plattform spilleren sist sto på (lastPlatformY) og en flagg (hasJumped)
+    // for å sjekke om nedstigning er med hopp eller “bare gåing”.
+    function resetPlayer() {
+      let level = levels[currentLevelIndex];
+      let startPlatform = level.platforms[0];
+      player = {
+        x: startPlatform.x + 10,
+        y: startPlatform.y - 40,
+        width: 40,
+        height: 40,
+        vx: 0,
+        vy: 0,
+        onGround: false,
+        lastPlatformY: startPlatform.y,
+        hasJumped: false
+      };
+      lastMoveTime = Date.now();
+    }
+    resetPlayer();
+
+    // Tastaturhåndtering
+    document.addEventListener('keydown', function(e) {
+      if (e.key === "ArrowLeft" || e.key === "a") keys.left = true;
+      if (e.key === "ArrowRight" || e.key === "d") keys.right = true;
+      if (e.key === "ArrowUp" || e.key === "w" || e.key === " ") {
+        if (player.onGround) {
+          player.vy = jumpVelocity;
+          player.onGround = false;
+          player.hasJumped = true;
+        }
+        keys.up = true;
+      }
+    });
+    document.addEventListener('keyup', function(e) {
+      if (e.key === "ArrowLeft" || e.key === "a") keys.left = false;
+      if (e.key === "ArrowRight" || e.key === "d") keys.right = false;
+      if (e.key === "ArrowUp" || e.key === "w" || e.key === " ") keys.up = false;
+    });
+
+    // Konfetti-variabler
+    let confettiParticles = [];
+    let confettiActive = false;
+    function startConfetti() {
+      confettiActive = true;
+      for (let i = 0; i < 100; i++) {
+        confettiParticles.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          vx: (Math.random() - 0.5) * 10,
+          vy: (Math.random() - 0.5) * 10,
+          emoji: Math.random() < 0.5 ? "🎉" : "🎊",
+          life: 100
+        });
+      }
+    }
+
+    // Spill-løkken
+    function gameLoop() {
+      update();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    // Oppdaterer spilltilstanden
+    function update() {
+      let level = levels[currentLevelIndex];
+
+      // Spilleren beveger seg horisontalt
+      if (keys.left) {
+        player.vx = -moveSpeed;
+      } else if (keys.right) {
+        player.vx = moveSpeed;
+      } else {
+        player.vx = 0;
+      }
+      if (Math.abs(player.vx) > 0) {
+        lastMoveTime = Date.now();
+      }
+
+      // Påfører tyngdekraft og oppdaterer spillerposisjonen
+      player.vy += gravity;
+      player.x += player.vx;
+      player.y += player.vy;
+
+      // Sjekk kollisjon med plattformer med ekstra sjekk for bratte nedstigninger.
+      // Spilleren skal kun lande dersom nedstigningen er liten, eller om spilleren har trykket hopp.
+      player.onGround = false;
+      for (let plat of level.platforms) {
+        // Bruk et margin for horisontal kollisjon slik at hitboxen stemmer bedre med det som tegnes.
+        if (player.x < plat.x + plat.width - hitMargin &&
+            player.x + player.width > plat.x + hitMargin &&
+            player.y < plat.y + plat.height &&
+            player.y + player.height > plat.y) {
+          let drop = plat.y - player.lastPlatformY;
+          if (player.vy >= 0 && (player.y + player.height - plat.y) < 30) {
+            if (drop > dropThreshold && !player.hasJumped) {
+              // For stor nedstigning uten at spilleren har hoppet – ignorer kollisjonen.
+              continue;
+            }
+            // Land på plattformen
+            player.y = plat.y - player.height;
+            player.vy = 0;
+            player.onGround = true;
+            player.lastPlatformY = plat.y;
+            player.hasJumped = false;
+          }
+        }
+      }
+
+      // Sørger for at spilleren holder seg innenfor horisontal skjerm
+      if (player.x < 0) player.x = 0;
+      if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+      // Hvis spilleren faller ut av skjermen, start nivået på nytt (beholder score)
+      if (player.y > canvas.height) {
+        resetPlayer();
+      }
+
+      // Oppdaterer creatures (alle dyr – både bjørn og andre)
+      level.creatures.forEach(creature => {
+        // Kollisjon med spilleren
+        if (creature.alive) {
+          if (player.x < creature.x + creature.width &&
+              player.x + player.width > creature.x &&
+              player.y < creature.y + creature.height &&
+              player.y + player.height > creature.y) {
+            // Hvis spilleren lander ovenfra (stomper) så eksploderer dyret
+            if (player.vy > 0 && (player.y + player.height - creature.y) < 20) {
+              creature.alive = false;
+              creature.explosionTime = Date.now() + 200;
+              score += 100;
+              player.vy = jumpVelocity / 2;
+            } else {
+              // Sidekollisjon: dyret dytter spilleren av plattformen
+              if (player.x + player.width / 2 < creature.x + creature.width / 2) {
+                player.x -= 10;
+                player.vx = -moveSpeed;
+              } else {
+                player.x += 10;
+                player.vx = moveSpeed;
+              }
+            }
+          }
+        } else {
+          // Fjern creature etter eksplosjonstiden
+          if (creature.explosionTime && Date.now() > creature.explosionTime) {
+            creature.remove = true;
+          }
+        }
+
+        // Oppdater creature-bevegelse – de holder seg på sin plattform
+        if (creature.y >= creature.platformY - creature.height - 1) {
+          creature.y = creature.platformY - creature.height;
+          creature.vy = 0;
+          if (creature.jumpCooldown <= 0 && Math.random() < 0.01) {
+            creature.vy = jumpVelocity * 0.8;
+            creature.jumpCooldown = 50;
+          }
+        } else {
+          creature.vy += gravity;
+        }
+        creature.x += creature.vx;
+        creature.y += creature.vy;
+        if (creature.jumpCooldown > 0) creature.jumpCooldown--;
+        // Hold creature innenfor plattformens horisontale grenser
+        if (creature.x < creature.platformX) {
+          creature.x = creature.platformX;
+          creature.vx *= -1;
+        }
+        if (creature.x + creature.width > creature.platformRight) {
+          creature.x = creature.platformRight - creature.width;
+          creature.vx *= -1;
+        }
+        if (Math.random() < 0.005) {
+          creature.vx *= -1;
+        }
+      });
+      level.creatures = level.creatures.filter(c => !c.remove);
+
+      // Sjekk om spilleren har nådd finish (🚪)
+      let finish = level.finish;
+      if (player.x < finish.x + finish.width &&
+          player.x + player.width > finish.x &&
+          player.y < finish.y + finish.height &&
+          player.y + player.height > finish.y) {
+        if (currentLevelIndex < levels.length - 1) {
+          if (!levelCompleteTime) {
+            levelCompleteTime = Date.now();
+          } else if (Date.now() - levelCompleteTime >= 300) {
+            currentLevelIndex++;
+            resetPlayer();
+            levelCompleteTime = null;
+            // Endre bakgrunn basert på nivå
+            document.body.style.background = backgrounds[currentLevelIndex] || "#87CEEB";
+          }
+        } else {
+          if (!levelCompleteTime) {
+            levelCompleteTime = Date.now();
+          } else if (Date.now() - levelCompleteTime >= 300) {
+            startConfetti();
+          }
+        }
+      }
+
+      // Oppdater konfetti
+      if (confettiActive) {
+        confettiParticles.forEach(p => {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.life--;
+        });
+        confettiParticles = confettiParticles.filter(p => p.life > 0);
+      }
+    }
+
+    // Tegn alle spillobjektene
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      let level = levels[currentLevelIndex];
+
+      // Tegn plattformer
+      ctx.fillStyle = "#654321";
+      level.platforms.forEach(plat => {
+        ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
+      });
+
+      // Tegn finish-området (🚪)
+      let finish = level.finish;
+      ctx.font = "30px serif";
+      ctx.fillText("🚪", finish.x, finish.y + finish.height);
+
+      // Tegn creatures (enten levende med sitt respektive dyr/bjørn, eller 💥 ved eksplosjon)
+      ctx.font = "40px serif";
+      level.creatures.forEach(creature => {
+        if (creature.alive) {
+          ctx.fillText(creature.type, creature.x, creature.y + creature.height);
+        } else {
+          if (Date.now() < creature.explosionTime) {
+            ctx.fillText("💥", creature.x, creature.y + creature.height);
+          }
+        }
+      });
+
+      // Bestem hvilken emoji som skal representere spilleren:
+      // - Når spilleren står stille: 🧍 (men byttes til 🧎‍➡️ etter 2000 ms inaktivitet)
+      // - Ved bevegelse (venstre eller høyre): 🏃
+      // - Etter nivåfullføring: 🤸 i 300 ms
+      let playerSprite = "🧍";
+      if (levelCompleteTime && Date.now() - levelCompleteTime < 300) {
+        playerSprite = "🤸";
+      } else if (Math.abs(player.vx) > 0) {
+        playerSprite = "🏃";
+      } else if (Date.now() - lastMoveTime >= 2000) {
+        playerSprite = "🧎‍➡️";
+      }
+      ctx.font = "40px serif";
+      ctx.fillText(playerSprite, player.x, player.y + player.height);
+
+      // Tegn score og nivå
+      ctx.fillStyle = "#000";
+      ctx.font = "20px sans-serif";
+      ctx.fillText("Score: " + score, 10, 30);
+      ctx.fillText("Nivå: " + (currentLevelIndex + 1), 10, 60);
+
+      // Tegn konfetti hvis aktivert
+      if (confettiActive) {
+        ctx.font = "20px serif";
+        confettiParticles.forEach(p => {
+          ctx.fillText(p.emoji, p.x, p.y);
+        });
+      }
+    }
+
+    gameLoop();
+  </script>
+</body>
+</html>
