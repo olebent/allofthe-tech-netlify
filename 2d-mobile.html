@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Emoji Plattformspill – Hard Mode</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <style>
     body {
       margin: 0;
@@ -12,42 +13,23 @@
     }
     canvas {
       display: block;
-    }
-    /* Touch-kontroller for mobil */
-    #touch-controls {
-      position: fixed;
-      bottom: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 1000;
-      display: flex;
-      gap: 20px;
-    }
-    #touch-controls button {
-      background: rgba(0, 0, 0, 0.5);
-      color: white;
-      font-size: 24px;
-      border: none;
-      border-radius: 50%;
-      width: 60px;
-      height: 60px;
+      touch-action: none; /* Forhindrer standard scrolling */
     }
   </style>
 </head>
 <body>
   <canvas id="game"></canvas>
-  <!-- Legger til en enkel knapp-grensesnitt for mobil -->
-  <div id="touch-controls">
-    <button id="left-btn">←</button>
-    <button id="jump-btn">↑</button>
-    <button id="right-btn">→</button>
-  </div>
   <script>
     // Hent canvas og kontekst
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    // Justerer størrelsen til å fylle hele vinduet
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
 
     // Definer bakgrunnsfarger for de ulike nivåene
     const backgrounds = [
@@ -68,18 +50,19 @@
     let currentLevelIndex = 0;
     let levels = [];
     let player = {};
+    // keys vil bli satt basert på touch-posisjon
     let keys = { left: false, right: false, up: false };
 
     const gravity = 0.5;
     const jumpVelocity = -12;
     const moveSpeed = 5;
-    // Tillatt nedstigning dersom droppet er mindre enn denne terskelen – hvis du ikke har hoppet, blir overgangen for bratt.
-    const dropThreshold = 20;
+    // Tillatt nedstigning – økt fra 20 til 100 for å unngå at man faller av når neste plattform ligger mye lavere.
+    const dropThreshold = 100;
     // Reduserer plattform-kollisjonsboksen med noen piksler slik at hitboxen stemmer bedre med tegningen
     const hitMargin = 5;
 
     let lastMoveTime = Date.now();
-    // Når nivået er fullført settes denne slik at spilleren vises med 🤸 i 300 ms
+    // Ved nivåfullføring vises spilleren med 🤸 i 300 ms
     let levelCompleteTime = null;
 
     // Dyr som kan dukke opp (utenom bjørnen)
@@ -94,7 +77,6 @@
           { x: 0, y: canvas.height - 50, width: canvas.width, height: 50 }
         ];
         let creatures = [];
-        // Plasser bjørnen midt på plattformen – bruker redusert fart (ganget med 0.5)
         creatures.push({
           x: canvas.width / 2,
           y: canvas.height - 90,
@@ -122,11 +104,18 @@
         let creatures = [];
         const platformCount = 5 + i; // Flere plattformer for høyere nivåer
         const platformWidth = canvas.width / platformCount;
+        // Vi lager plattformer med en moderat variasjon i høyde.
+        // For å unngå uhensiktsmessige hopp, bruker vi den forrige plattformens y-verdi som basis.
+        let lastY = canvas.height - 50;
         for (let j = 0; j < platformCount; j++) {
           let x = j * platformWidth;
-          let y = canvas.height - 50 - (Math.random() * 100 + i * 10);
+          // Velg y med en variasjon, men begrens den slik at neste plattform ikke havner langt høyere enn forrige
+          let y = lastY - (Math.random() * 20 - 10);
+          // Sørg for at plattformene ikke går utenfor skjermen
+          y = Math.min(canvas.height - 50, Math.max(50, y));
           platforms.push({ x: x, y: y, width: platformWidth - 20, height: 20 });
-          // 40% sjanse for å legge til en bjørn (🐻) med redusert fart
+          lastY = y;
+          // 40% sjanse for å legge til en bjørn (🐻)
           if (Math.random() < 0.4) {
             creatures.push({
               x: x + (platformWidth - 20) / 2 - 20,
@@ -144,7 +133,7 @@
               jumpCooldown: 0
             });
           }
-          // 15% sjanse for å legge til et annet dyr (tilfeldig valgt) med redusert fart
+          // 15% sjanse for å legge til et annet dyr (tilfeldig valgt)
           if (Math.random() < 0.15) {
             let type = animalTypes[Math.floor(Math.random() * animalTypes.length)];
             creatures.push({
@@ -177,8 +166,6 @@
     levels = createLevels();
 
     // Spilleren plasseres alltid oppå den første plattformen i nivået.
-    // Vi lagrer også hvilken plattform spilleren sist sto på (lastPlatformY) og en flagg (hasJumped)
-    // for å sjekke om nedstigning er med hopp eller “bare gåing”.
     function resetPlayer() {
       let level = levels[currentLevelIndex];
       let startPlatform = level.platforms[0];
@@ -197,12 +184,12 @@
     }
     resetPlayer();
 
-    // Tastaturhåndtering
+    // Tastaturhåndtering for desktop
     document.addEventListener('keydown', function(e) {
-      if (e.key === "ArrowLeft" || e.key === "a") keys.left = true;
-      if (e.key === "ArrowRight" || e.key === "d") keys.right = true;
-      if (e.key === "ArrowUp" || e.key === "w" || e.key === " ") {
-        if (player.onGround) {
+      if(e.key === "ArrowLeft" || e.key === "a") keys.left = true;
+      if(e.key === "ArrowRight" || e.key === "d") keys.right = true;
+      if(e.key === "ArrowUp" || e.key === "w" || e.key === " ") {
+        if(player.onGround) {
           player.vy = jumpVelocity;
           player.onGround = false;
           player.hasJumped = true;
@@ -211,77 +198,51 @@
       }
     });
     document.addEventListener('keyup', function(e) {
-      if (e.key === "ArrowLeft" || e.key === "a") keys.left = false;
-      if (e.key === "ArrowRight" || e.key === "d") keys.right = false;
-      if (e.key === "ArrowUp" || e.key === "w" || e.key === " ") keys.up = false;
+      if(e.key === "ArrowLeft" || e.key === "a") keys.left = false;
+      if(e.key === "ArrowRight" || e.key === "d") keys.right = false;
+      if(e.key === "ArrowUp" || e.key === "w" || e.key === " ") keys.up = false;
     });
 
-    // Legger til touch- og mus-hendelser på knappene for mobilspill
-    const leftBtn = document.getElementById('left-btn');
-    const rightBtn = document.getElementById('right-btn');
-    const jumpBtn = document.getElementById('jump-btn');
-
-    // Venstre-knapp
-    leftBtn.addEventListener('touchstart', function(e) {
-      keys.left = true;
-      e.preventDefault();
-    });
-    leftBtn.addEventListener('touchend', function(e) {
+    // Touch-hendelser for mobile.
+    // Vi deler skjermen i tre soner:
+    // - Øverste tredjedel: hopp
+    // - Venstre halvdel (ikke i øverste tredjedel): venstre
+    // - Høyre halvdel (ikke i øverste tredjedel): høyre
+    function handleTouches(e) {
+      // Nullstill alle nøkkelverdier
       keys.left = false;
-      e.preventDefault();
-    });
-    leftBtn.addEventListener('mousedown', function(e) {
-      keys.left = true;
-      e.preventDefault();
-    });
-    leftBtn.addEventListener('mouseup', function(e) {
-      keys.left = false;
-      e.preventDefault();
-    });
-
-    // Høyre-knapp
-    rightBtn.addEventListener('touchstart', function(e) {
-      keys.right = true;
-      e.preventDefault();
-    });
-    rightBtn.addEventListener('touchend', function(e) {
       keys.right = false;
-      e.preventDefault();
-    });
-    rightBtn.addEventListener('mousedown', function(e) {
-      keys.right = true;
-      e.preventDefault();
-    });
-    rightBtn.addEventListener('mouseup', function(e) {
-      keys.right = false;
-      e.preventDefault();
-    });
-
-    // Hopp-knapp
-    jumpBtn.addEventListener('touchstart', function(e) {
-      if (player.onGround) {
-        player.vy = jumpVelocity;
-        player.onGround = false;
-        player.hasJumped = true;
-      }
-      keys.up = true;
-      e.preventDefault();
-    });
-    jumpBtn.addEventListener('touchend', function(e) {
       keys.up = false;
-      e.preventDefault();
-    });
-    jumpBtn.addEventListener('mousedown', function(e) {
-      if (player.onGround) {
-        player.vy = jumpVelocity;
-        player.onGround = false;
-        player.hasJumped = true;
+      for (let i = 0; i < e.touches.length; i++) {
+        let touch = e.touches[i];
+        let x = touch.clientX;
+        let y = touch.clientY;
+        if (y < window.innerHeight / 3) {
+          keys.up = true;
+        } else {
+          if (x < window.innerWidth / 2) {
+            keys.left = true;
+          } else {
+            keys.right = true;
+          }
+        }
       }
-      keys.up = true;
+    }
+    canvas.addEventListener('touchstart', function(e) {
+      handleTouches(e);
       e.preventDefault();
     });
-    jumpBtn.addEventListener('mouseup', function(e) {
-      keys.up = false;
+    canvas.addEventListener('touchmove', function(e) {
+      handleTouches(e);
+      e.preventDefault();
+    });
+    canvas.addEventListener('touchend', function(e) {
+      // Hvis ingen touches er igjen, nullstill alle kontroller
+      if(e.touches.length === 0){
+        keys.left = false;
+        keys.right = false;
+        keys.up = false;
+      }
       e.preventDefault();
     });
 
@@ -290,7 +251,7 @@
     let confettiActive = false;
     function startConfetti() {
       confettiActive = true;
-      for (let i = 0; i < 100; i++) {
+      for(let i = 0; i < 100; i++){
         confettiParticles.push({
           x: Math.random() * canvas.width,
           y: Math.random() * canvas.height,
@@ -313,38 +274,33 @@
     function update() {
       let level = levels[currentLevelIndex];
 
-      // Spilleren beveger seg horisontalt
-      if (keys.left) {
+      // Spilleren beveger seg horisontalt basert på keys
+      if(keys.left) {
         player.vx = -moveSpeed;
-      } else if (keys.right) {
+      } else if(keys.right) {
         player.vx = moveSpeed;
       } else {
         player.vx = 0;
       }
-      if (Math.abs(player.vx) > 0) {
+      if(Math.abs(player.vx) > 0) {
         lastMoveTime = Date.now();
       }
 
-      // Påfører tyngdekraft og oppdaterer spillerposisjonen
+      // Påfører tyngdekraft og oppdaterer spillerposisjon
       player.vy += gravity;
       player.x += player.vx;
       player.y += player.vy;
 
-      // Sjekk kollisjon med plattformer med ekstra sjekk for bratte nedstigninger.
-      // Spilleren skal kun lande dersom nedstigningen er liten, eller om spilleren har trykket hopp.
+      // Sjekk kollisjon med plattformer
       player.onGround = false;
-      for (let plat of level.platforms) {
-        if (player.x < plat.x + plat.width - hitMargin &&
-            player.x + player.width > plat.x + hitMargin &&
-            player.y < plat.y + plat.height &&
-            player.y + player.height > plat.y) {
+      for(let plat of level.platforms) {
+        if(player.x < plat.x + plat.width - hitMargin &&
+           player.x + player.width > plat.x + hitMargin &&
+           player.y < plat.y + plat.height &&
+           player.y + player.height > plat.y) {
           let drop = plat.y - player.lastPlatformY;
-          if (player.vy >= 0 && (player.y + player.height - plat.y) < 30) {
-            if (drop > dropThreshold && !player.hasJumped) {
-              // For stor nedstigning uten at spilleren har hoppet – ignorer kollisjonen.
-              continue;
-            }
-            // Land på plattformen
+          // Vi fjerner den gamle sjekken for for stor nedstigning slik at spilleren lander hvis treffet er nær nok
+          if(player.vy >= 0 && (player.y + player.height - plat.y) < 30) {
             player.y = plat.y - player.height;
             player.vy = 0;
             player.onGround = true;
@@ -354,31 +310,28 @@
         }
       }
 
-      // Sørger for at spilleren holder seg innenfor horisontal skjerm
-      if (player.x < 0) player.x = 0;
-      if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
-      // Hvis spilleren faller ut av skjermen, start nivået på nytt (beholder score)
-      if (player.y > canvas.height) {
+      // Hold spilleren innenfor horisontal skjerm
+      if(player.x < 0) player.x = 0;
+      if(player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+      // Om spilleren faller ut av skjermen, tilbakestill posisjon (beholder score)
+      if(player.y > canvas.height) {
         resetPlayer();
       }
 
-      // Oppdaterer creatures (alle dyr – både bjørn og andre)
+      // Oppdater creatures (bjørn og andre dyr)
       level.creatures.forEach(creature => {
-        // Kollisjon med spilleren
-        if (creature.alive) {
-          if (player.x < creature.x + creature.width &&
-              player.x + player.width > creature.x &&
-              player.y < creature.y + creature.height &&
-              player.y + player.height > creature.y) {
-            // Hvis spilleren lander ovenfra (stomper) så eksploderer dyret
-            if (player.vy > 0 && (player.y + player.height - creature.y) < 20) {
+        if(creature.alive) {
+          if(player.x < creature.x + creature.width &&
+             player.x + player.width > creature.x &&
+             player.y < creature.y + creature.height &&
+             player.y + player.height > creature.y) {
+            if(player.vy > 0 && (player.y + player.height - creature.y) < 20) {
               creature.alive = false;
               creature.explosionTime = Date.now() + 200;
               score += 100;
               player.vy = jumpVelocity / 2;
             } else {
-              // Sidekollisjon: dyret dytter spilleren av plattformen
-              if (player.x + player.width / 2 < creature.x + creature.width / 2) {
+              if(player.x + player.width/2 < creature.x + creature.width/2) {
                 player.x -= 10;
                 player.vx = -moveSpeed;
               } else {
@@ -388,16 +341,16 @@
             }
           }
         } else {
-          if (creature.explosionTime && Date.now() > creature.explosionTime) {
+          if(creature.explosionTime && Date.now() > creature.explosionTime) {
             creature.remove = true;
           }
         }
 
         // Oppdater creature-bevegelse – de holder seg på sin plattform
-        if (creature.y >= creature.platformY - creature.height - 1) {
+        if(creature.y >= creature.platformY - creature.height - 1) {
           creature.y = creature.platformY - creature.height;
           creature.vy = 0;
-          if (creature.jumpCooldown <= 0 && Math.random() < 0.01) {
+          if(creature.jumpCooldown <= 0 && Math.random() < 0.01) {
             creature.vy = jumpVelocity * 0.8;
             creature.jumpCooldown = 50;
           }
@@ -406,16 +359,16 @@
         }
         creature.x += creature.vx;
         creature.y += creature.vy;
-        if (creature.jumpCooldown > 0) creature.jumpCooldown--;
-        if (creature.x < creature.platformX) {
+        if(creature.jumpCooldown > 0) creature.jumpCooldown--;
+        if(creature.x < creature.platformX) {
           creature.x = creature.platformX;
           creature.vx *= -1;
         }
-        if (creature.x + creature.width > creature.platformRight) {
+        if(creature.x + creature.width > creature.platformRight) {
           creature.x = creature.platformRight - creature.width;
           creature.vx *= -1;
         }
-        if (Math.random() < 0.005) {
+        if(Math.random() < 0.005) {
           creature.vx *= -1;
         }
       });
@@ -423,30 +376,30 @@
 
       // Sjekk om spilleren har nådd finish (🚪)
       let finish = level.finish;
-      if (player.x < finish.x + finish.width &&
-          player.x + player.width > finish.x &&
-          player.y < finish.y + finish.height &&
-          player.y + player.height > finish.y) {
-        if (currentLevelIndex < levels.length - 1) {
-          if (!levelCompleteTime) {
+      if(player.x < finish.x + finish.width &&
+         player.x + player.width > finish.x &&
+         player.y < finish.y + finish.height &&
+         player.y + player.height > finish.y) {
+        if(currentLevelIndex < levels.length - 1) {
+          if(!levelCompleteTime) {
             levelCompleteTime = Date.now();
-          } else if (Date.now() - levelCompleteTime >= 300) {
+          } else if(Date.now() - levelCompleteTime >= 300) {
             currentLevelIndex++;
             resetPlayer();
             levelCompleteTime = null;
-            // Endre bakgrunn basert på nivå
             document.body.style.background = backgrounds[currentLevelIndex] || "#87CEEB";
           }
         } else {
-          if (!levelCompleteTime) {
+          if(!levelCompleteTime) {
             levelCompleteTime = Date.now();
-          } else if (Date.now() - levelCompleteTime >= 300) {
+          } else if(Date.now() - levelCompleteTime >= 300) {
             startConfetti();
           }
         }
       }
 
-      if (confettiActive) {
+      // Oppdater konfetti
+      if(confettiActive) {
         confettiParticles.forEach(p => {
           p.x += p.vx;
           p.y += p.vy;
@@ -460,44 +413,38 @@
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       let level = levels[currentLevelIndex];
-
       ctx.fillStyle = "#654321";
       level.platforms.forEach(plat => {
         ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
       });
-
       let finish = level.finish;
       ctx.font = "30px serif";
       ctx.fillText("🚪", finish.x, finish.y + finish.height);
-
       ctx.font = "40px serif";
       level.creatures.forEach(creature => {
-        if (creature.alive) {
+        if(creature.alive) {
           ctx.fillText(creature.type, creature.x, creature.y + creature.height);
         } else {
-          if (Date.now() < creature.explosionTime) {
+          if(Date.now() < creature.explosionTime) {
             ctx.fillText("💥", creature.x, creature.y + creature.height);
           }
         }
       });
-
       let playerSprite = "🧍";
-      if (levelCompleteTime && Date.now() - levelCompleteTime < 300) {
+      if(levelCompleteTime && Date.now() - levelCompleteTime < 300) {
         playerSprite = "🤸";
-      } else if (Math.abs(player.vx) > 0) {
+      } else if(Math.abs(player.vx) > 0) {
         playerSprite = "🏃";
-      } else if (Date.now() - lastMoveTime >= 2000) {
+      } else if(Date.now() - lastMoveTime >= 2000) {
         playerSprite = "🧎‍➡️";
       }
       ctx.font = "40px serif";
       ctx.fillText(playerSprite, player.x, player.y + player.height);
-
       ctx.fillStyle = "#000";
       ctx.font = "20px sans-serif";
       ctx.fillText("Score: " + score, 10, 30);
       ctx.fillText("Nivå: " + (currentLevelIndex + 1), 10, 60);
-
-      if (confettiActive) {
+      if(confettiActive) {
         ctx.font = "20px serif";
         confettiParticles.forEach(p => {
           ctx.fillText(p.emoji, p.x, p.y);
